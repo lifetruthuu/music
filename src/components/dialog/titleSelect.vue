@@ -3,7 +3,7 @@
     :visible.sync="titleDialog"
     :before-close="onClose"
     custom-class="tag-dialog"
-    width="600px"
+    :width="dialogWidth"
     center>
     <div class="container">
       <h1 class="header">选择您喜欢的音乐标签</h1>
@@ -55,12 +55,31 @@ export default {
       selectedTags: [],
       titleData: [],
       codes: [],
+      dialogWidth: '600px',
+      windowWidth: window.innerWidth
     }
   },
   created() {
     this.queryCode();
+    this.updateDialogWidth();
+    window.addEventListener('resize', this.updateDialogWidth);
+  },
+  beforeDestroy() {
+    window.removeEventListener('resize', this.updateDialogWidth);
   },
   methods:{
+    updateDialogWidth() {
+      this.windowWidth = window.innerWidth;
+      if (this.windowWidth <= 768) {
+        this.dialogWidth = '95%';
+      } else if (this.windowWidth <= 992) {
+        this.dialogWidth = '80%';
+      } else if (this.windowWidth <= 1200) {
+        this.dialogWidth = '70%';
+      } else {
+        this.dialogWidth = '600px';
+      }
+    },
     toggleTag(tag) {
       const index = this.selectedTags.indexOf(tag)
       if (index > -1) {
@@ -104,6 +123,7 @@ export default {
       }
       
       const userString = localStorage.getItem('user');
+      console.log("userString", userString);
       this.user = JSON.parse(userString);
 
       api.post('/api/user/title/', {
@@ -133,58 +153,61 @@ export default {
 :deep(.tag-dialog) {
   border-radius: 12px;
   overflow: hidden;
+  max-width: 96%;
+  margin: 0 auto;
 }
 
 .container {
-  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
-  padding: 10px 20px 20px;
+  padding: 2% 3%;
 }
 
 .header {
-  font-size: 22px;
+  font-size: clamp(1.2rem, 4vw, 1.8rem);
   color: #333;
-  margin-bottom: 10px;
+  margin-bottom: 0.8em;
   text-align: center;
 }
 
 .selection-hint {
   color: #909399;
-  font-size: 14px;
+  font-size: clamp(0.8rem, 3vw, 1rem);
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 1.5em;
 }
 
 .category-group {
-  margin-bottom: 20px;
+  margin-bottom: 1.5em;
   background: white;
   border-radius: 12px;
-  padding: 15px;
+  padding: 1em;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .category-title {
-  font-size: 18px;
+  font-size: clamp(1rem, 3.5vw, 1.2rem);
   color: #333;
-  margin-bottom: 15px;
+  margin-bottom: 0.8em;
   font-weight: 500;
 }
 
 .tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 0.6em;
 }
 
 .tag-item {
-  padding: 8px 15px;
+  padding: 0.5em 1em;
   border-radius: 20px;
   border: 1px solid #eee;
-  font-size: 14px;
+  font-size: clamp(0.75rem, 2.5vw, 0.9rem);
   color: #666;
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
+  margin-bottom: 0.4em;
 }
 
 .tag-item:hover {
@@ -213,23 +236,23 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 20px;
-  padding-top: 15px;
+  margin-top: 1.2em;
+  padding-top: 1em;
   border-top: 1px solid #ebeef5;
 }
 
 .selected-count {
   color: #666;
-  font-size: 14px;
+  font-size: clamp(0.8rem, 2.5vw, 0.9rem);
 }
 
 .confirm-btn {
   background: #0084ff;
   color: white;
   border: none;
-  padding: 10px 25px;
+  padding: 0.6em 1.5em;
   border-radius: 25px;
-  font-size: 15px;
+  font-size: clamp(0.85rem, 2.5vw, 0.95rem);
   cursor: pointer;
 }
 
@@ -239,22 +262,64 @@ export default {
 }
 
 /* 响应式调整 */
-@media (max-width: 576px) {
-  .container {
-    padding: 10px;
+@media (max-width: 1200px) {
+  .tags-container {
+    gap: 0.5em;
   }
-  
-  .header {
-    font-size: 18px;
+}
+
+@media (max-width: 992px) {
+  .container {
+    padding: 1.5% 2.5%;
   }
   
   .category-group {
-    padding: 10px;
+    padding: 0.8em;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1.2% 2%;
+  }
+  
+  .dialog-footer {
+    flex-direction: column;
+    gap: 0.8em;
+  }
+  
+  .selected-count {
+    margin-bottom: 0.5em;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding: 0.8em;
+  }
+  
+  .header {
+    margin-bottom: 0.5em;
+  }
+  
+  .category-group {
+    padding: 0.7em;
+    margin-bottom: 1em;
   }
   
   .tag-item {
-    padding: 6px 12px;
-    font-size: 13px;
+    padding: 0.4em 0.8em;
+  }
+}
+
+@media (max-width: 320px) {
+  .tag-item {
+    font-size: 0.7rem;
+    padding: 0.3em 0.6em;
+  }
+  
+  .category-title {
+    font-size: 0.95rem;
   }
 }
 </style>

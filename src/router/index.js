@@ -4,6 +4,7 @@ import Login from '../components/login.vue';
 import Register from '../components/register.vue';
 import Index from '../components/index.vue';
 import Houtai from '../components/houtai.vue';
+import SongDetailPage from '../components/qiantaiPage/songDetailPage.vue'
 Vue.use(VueRouter);
 
 
@@ -29,6 +30,12 @@ const routes = [
         path: '/houtaiPage',
         name: 'houtaiPage',
         component: Houtai,
+    },
+    {
+        path: '/song/:id',
+        name: 'SongDetail',
+        component: SongDetailPage,
+        props: true
     },
 ];
 

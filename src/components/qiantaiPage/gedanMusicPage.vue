@@ -123,7 +123,7 @@ export default {
         pageNum: 1,
         pageSize: 1000,
         singerId: this.singerId,
-        userId: null,
+        userId: this.user.id,
         queryStr:this.queryStr,
       }).then(res => {
         this.songs = res.list;

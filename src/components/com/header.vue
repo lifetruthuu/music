@@ -43,7 +43,7 @@ export default {
       isFavorited: false, // 是否已收藏
       currentMusicPath: '',
       currentMusicId: '',
-      menus:[{index:0,name:'首页'},{index:1,name:'歌单'},{index:2,name:'歌手'},{index:3,name:'我的音乐'}]
+      menus:[{index:0,name:'首页'},{index:1,name:'歌单'},{index:2,name:'歌手'},{index:3,name:'我的音乐'},{index:4,name:'歌曲推荐'}]
     }
   },
 

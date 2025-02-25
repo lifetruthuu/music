@@ -65,30 +65,39 @@ export default{
         name: '首页',
         active: false,
         component: YongHuPage,
-      }, {
+      }, 
+      {
         key: 'gedanPage',
         name: '歌单',
         active: false,
         component: gedanPage,
-      }, {
+      }, 
+      {
         key: 'singerPage',
         name: '歌手',
         active: false,
         component: SingerPage,
 
-      }, {
+      }, 
+      {
         key: 'myMusicPage',
         name: '我的音乐',
         active: false,
         component: myMusicPage,
 
-      }, {
-          key: 'gedanMusicPage',
-          name: '我的音乐',
-          active: false,
-          component: gedanMusicPage,
-
-        }],
+      }, 
+      {
+        key: 'gedanMusicPage',
+        name: '我的音乐',
+        active: false,
+        component: gedanMusicPage,
+      },
+      {
+        key: 'tuijianPage',
+        name: '歌曲推荐',
+        active: false,
+        component: tuijianPage,
+      }],
       currentPageCode: 'YongHuPage',
       singerId: null,
       geDanId: null,
@@ -264,7 +273,6 @@ export default{
     const user = JSON.parse(userString);
     this.username = user.username;
     this.id = user.id;
-
     this.initData();
   }
 }

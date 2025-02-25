@@ -107,6 +107,11 @@ export default {
       }
     };
   },
+  mounted(){
+    this.ruleForm.userName = "";
+    this.ruleForm.password = "";
+    this.ruleForm.confirmPassword = "";
+  },
   methods:{
     async onResigins(formName) {
       this.$refs[formName].validate(async (valid) => {

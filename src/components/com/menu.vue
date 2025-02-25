@@ -26,6 +26,7 @@ export default {
         { index: 1, icon: 'el-icon-s-custom', title: '歌单管理' },
         { index: 2, icon: 'el-icon-s-custom', title: '歌手管理' },
         { index: 3, icon: 'el-icon-s-custom', title: '音乐管理' },
+        { index: 4, icon: 'el-icon-s-custom', title: '歌曲推荐' },
       ],
 
     };
@@ -38,8 +39,6 @@ export default {
 
   },
   methods: {
-
-
     // 菜单选择事件
     handleMenuSelect(index) {
       this.$nextTick(() => {
@@ -64,6 +63,4 @@ export default {
 .custom-menu {
   text-align: left; /* 左对齐 */
 }
-
-
 </style>
