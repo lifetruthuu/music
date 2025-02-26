@@ -93,7 +93,7 @@ export default {
         musicId: song.id,
         userId: this.user.id,
       }).then(res => {
-        song.favorited = true;
+        song.favorited = 1;
         this.$emit("收藏成功")
         this.initData();
       }).catch(err => {
@@ -110,11 +110,11 @@ export default {
       return `http://localhost:8000${path}`;
     },
     initData() {
-      api.post('/api/music/list/', {
+      api.post('/api/music/singerList/', {
         pageNum: 1,
         pageSize: 1000,
         singerId: this.singerId,
-        userId: null,
+        userId: this.user.id,
         queryStr:this.queryStr,
       }).then(res => {
         this.songs = res.list;

@@ -371,6 +371,7 @@ audio::-webkit-media-controls-volume-slider {
   padding: 0;
   border-radius: 2px;
   background-color: #e4e7ed;
+  transition: all 1.2s ease;
   margin-top: 13.4px;
 }
 
@@ -379,7 +380,7 @@ audio::-webkit-media-controls-volume-slider::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  transition: all 0.3s ease;
+  transition: all 1.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   /* margin-top: -4px; */
 }
@@ -393,7 +394,7 @@ audio::-webkit-media-controls-volume-slider::-webkit-slider-thumb:hover {
 audio::-webkit-media-controls-mute-button {
   padding: 5px;
   border-radius: 50%;
-  transition: all 0.3s ease;
+  transition: all 1s ease;
   margin-right: 5px;
   /* margin-top: 4px; */
 }
