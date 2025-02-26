@@ -1,6 +1,6 @@
 <template>
-  <main class="content">
-    <!-- 轮播图 -->
+  <main class="yonghu-container">
+    <!-- 轮播图 - 100%宽度 -->
     <div class="carousel-section">
       <el-carousel height="400px" :interval="4000" type="card" indicator-position="outside">
         <el-carousel-item v-for="(item,index) in images" :key="index">
@@ -13,91 +13,60 @@
       </el-carousel>
     </div>
 
-    <!-- 歌单网格 -->
-    <h3>歌单</h3>
-    <div class="playlist-grid">
-      <el-row :gutter="20">
-        <el-col
-            v-for="(item, index) in tableData"
-            :key="index"
-            :xs="12"
-            :sm="8"
-            :md="6"
-            :lg="4"
-        >
-          <el-card class="music-card" @click.native="onGeDanDetail(item, index)">
-            <img
-                :src="fullImagePath(item.urlPath)"
-                class="card-image"
-            />
-
-
-            <div class="card-footer">
-              <h3 style="text-align: left">{{ item.name }}</h3>
-              <!--                <p>{{ item.singerNames }}</p>-->
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
-    </div>
-
-    <h3>推荐歌曲</h3>
-    <div class="playlist-grid">
-      <el-row :gutter="20">
-        <el-col
-            v-for="(item, index) in songs"
-            :key="index"
-            :xs="12"
-            :sm="8"
-            :md="6"
-            :lg="4"
-        >
-          <el-card class="music-card" @click.native="onAudio(item, index)">
-
-            <img
-                :src="imagePath(item)"
-                class="card-image"
-            />
-
-
-
-            <div class="card-footer">
-              <h3 style="text-align: left">{{ item.name }}</h3>
-              <!--                <p>{{ item.singerNames }}</p>-->
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
-    </div>
-
-    <!-- 底部播放器 -->
-    <footer class="player-footer" :class="{ show: showPlayer }">
-      <div class="player-controls">
-        <div class="left-controls">
-          <span v-if="currentAudioName" class="music-cover">
-            <img
-              :src="currentAudio && currentAudio.musicPath ? fullImagePath(currentAudio.musicPath) : require('../../assets/1740221524183.jpg')"
-              alt="封面"
-            />
-          </span>
-          <div class="music-info">
-            <span class="music-name">{{ currentAudioName || '未播放' }}</span>
-            <span class="music-singer">{{ currentAudioSinger || '-' }}</span>
-          </div>
-        </div>
-        <div class="progress-section">
-          <i class="el-icon-caret-left" @click="previousMusic"></i>
-          <audio
-              ref="audioPlayer"
-              :src="currentAudioPath"
-              @timeupdate="updateProgress"
-              @ended="handleAudioEnded"
-              controls
-          />
-          <i class="el-icon-caret-right" @click="nextMusic"></i>
-        </div>
+    <!-- 歌单网格 - 70%宽度 -->
+    <div class="content-section">
+      <h3 class="section-title">歌单</h3>
+      <div class="playlist-grid">
+        <el-row :gutter="20">
+          <el-col
+              v-for="(item, index) in tableData"
+              :key="index"
+              :xs="12"
+              :sm="6"
+              :md="6"
+              :lg="4"
+          >
+            <el-card class="music-card" @click.native="onGeDanDetail(item, index)">
+              <img
+                  :src="fullImagePath(item.urlPath)"
+                  class="card-image"
+              />
+              <div class="card-footer">
+                <h3 class="card-title">{{ item.name }}</h3>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
       </div>
-    </footer>
+    </div>
+
+    <!-- 推荐歌曲 - 70%宽度 -->
+    <div class="content-section">
+      <h3 class="section-title">推荐歌曲</h3>
+      <div class="playlist-grid">
+        <el-row :gutter="20">
+          <el-col
+              v-for="(item, index) in songs"
+              :key="index"
+              :xs="12"
+              :sm="6"
+              :md="6"
+              :lg="4"
+          >
+            <el-card class="music-card" @click.native="onAudio(item, index)">
+              <img
+                  :src="imagePath(item)"
+                  class="card-image"
+              />
+              <div class="card-footer">
+                <h3 class="card-title">{{ item.name }}</h3>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
+    </div>
+
     <title-select v-if="titleDialog" :title-dialog="titleDialog" @onclose="onclose"></title-select>
   </main>
 </template>
@@ -338,507 +307,133 @@ export default {
 </script>
 
 <style scoped>
-/* 全局容器样式 */
-.content {
+/* 容器样式 */
+.yonghu-container {
+  width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  background-color: #f5f7fa;
   min-height: 100vh;
-  background-color: #f9f9f9;
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
 }
 
-/* 轮播图优化 */
+/* 轮播图区域 - 100%宽度 */
 .carousel-section {
-  margin: 20px auto;
-  width: 92%;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  margin-bottom: 30px;
 }
 
 .carousel-image {
-  transition: all 0.5s ease;
-  filter: brightness(0.95);
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
 }
 
-.el-carousel__item:hover .carousel-image {
-  filter: brightness(1.05);
-  transform: scale(1.02);
+/* 内容区域 - 70%宽度 */
+.content-section {
+  width: 70%;
+  margin: 0 auto 30px;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 标题样式 */
-h3 {
-  margin: 25px auto 15px;
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  position: relative;
-  padding-left: 12px;
-  letter-spacing: 0.5px;
-  width: 90%;
-  max-width: 1200px;
+/* 区块标题样式 */
+.section-title {
+  font-size: 22px !important;
+  font-weight: bold !important;
+  margin: 0 0 20px 0 !important;
+  color: #303133 !important;
+  text-align: left !important;
+  padding-left: 10px !important;
+  border-left: 4px solid #409EFF !important;
+  width: auto !important;
 }
 
-h3::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 25%;
-  height: 50%;
-  width: 4px;
-  background: #fcfcfc;
-  border-radius: 2px;
+.section-title::before {
+  display: none !important;
 }
 
-/* 卡片样式优化 */
+/* 卡片样式 */
 .music-card {
   margin-bottom: 20px;
+  transition: all 0.3s;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
 .music-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
 .card-image {
   width: 100%;
   height: 180px;
   object-fit: cover;
-  flex-grow: 0;
+  transition: all 0.3s;
+  flex-shrink: 0; /* 防止图片被压缩 */
 }
 
 .music-card:hover .card-image {
   transform: scale(1.05);
 }
 
-/* 播放器优化 - 添加动态显示和居中效果 */
-.player-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  padding: 10px 0;
-  transform: translateY(100%);
-  transition: transform 0.4s ease;
-  opacity: 0.2;
-}
-
-/* 当鼠标靠近底部时显示播放器 */
-.player-footer.show {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-/* 居中播放器内容 */
-.player-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-/* 优化左侧控制区布局 */
-.left-controls {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  width: 300px;
-}
-
-/* 专辑封面样式 */
-.music-cover {
-  width: 60px;
-  height: 60px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-right: 10px;
-}
-
-.music-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* 音乐信息显示优化 */
-.music-info {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.music-name {
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.music-singer {
-  font-size: 12px;
-  color: #666;
-}
-
-/* 进度条区域优化 */
-.progress-section {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  max-width: 600px;
-}
-
-audio {
-  width: 100%;
-  max-width: 500px;
-}
-
-/* 进度条优化 */
-.progress-bar :deep(.el-slider__runway) {
-  height: 4px;
-  background-color: #e8e8e8;
-}
-
-:deep(.el-slider__bar) {
-  background-color: #409EFF;
-}
-
-:deep(.el-slider__button) {
-  border: 2px solid #409EFF;
-  transition: transform 0.2s;
-}
-
-:deep(.el-slider__button):hover {
-  transform: scale(1.2);
-}
-
-/* 音频控件美化 */
-audio {
-  border-radius: 4px;
-}
-
-/* 卡片内容区域 */
 .card-footer {
   padding: 12px;
+  text-align: left;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  height: 110px; /* 固定卡片底部高度，与gedanPage保持一致 */
+  box-sizing: border-box; /* 确保padding不会增加元素高度 */
 }
 
-.card-footer h3 {
-  margin: 0;
-  padding-left: 0;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.card-title {
+  margin: 0 !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  font-family: 'STXinwei' !important;
+  color: #303133 !important;
+  white-space: normal !important; /* 允许文本换行 */
+  overflow: visible !important; /* 允许内容溢出 */
+  text-overflow: clip !important; /* 移除省略号 */
+  padding-left: 0 !important;
+  width: auto !important;
+  line-height: 1.4 !important; /* 控制行高 */
+  display: -webkit-box !important; /* 使用box布局实现多行文本 */
+  -webkit-line-clamp: 3 !important; /* 最多显示3行 */
+  -webkit-box-orient: vertical !important; /* 垂直方向排列 */
+  max-height: 4.2em !important; /* 3行文本的最大高度 (1.4 * 3) */
 }
 
-.card-footer h3::before {
-  display: none;
-}
-
-.main-container {
+/* 修复卡片大小问题 */
+.el-col {
   display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.progress-section {
-  display: flex;
-  align-items: center; /* 垂直居中对齐 */
-  justify-content: center; /* 水平居中对齐（可选） */
-  gap: 10px; /* 添加一些间距 */
-}
-
-/* 确保内容区域和 footer 布局 */
-.content {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh; /* 占满整个视口高度 */
-}
-
-.red {
-  color: red; /* 收藏后显示为红色 */
-}
-
-.playlist-grid {
-  margin: 1rem auto 2rem;
-  width: 90%;
-  max-width: 1200px;
-  padding: 0;
-}
-
-.player-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: #fff;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  padding: 10px 20px;
-}
-
-
-.progress-section i {
-  cursor: pointer;
-  font-size: 20px;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between; /* 保持两侧间距 */
-  align-items: center;
-  padding: 0 7rem;
-  height: 60px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.right-controls {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.volume-slider-container {
-  display: flex;
-  align-items: center;
-  height: 100px; /* 控制滑块高度 */
-  margin-left: 10px;
-}
-
-/* 自定义滑块样式 */
-:deep(.el-slider__bar) {
-  background-color: #409eff; /* 滑块背景色 */
-}
-
-
-:deep(.el-slider__button) {
-  width: 12px;
-  height: 12px;
-  border: 2px solid #409eff; /* 滑块按钮边框 */
-}
-
-/* 新增导航区容器 */
-.nav-section {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem; /* 控制按钮与搜索框间距 */
-}
-
-.nav-buttons {
-  display: flex;
-  gap: 1rem; /* 按钮间间距 */
-}
-
-.search-input {
-  width: 200px;
-  transition: all 0.3s;
-}
-
-/* 保持右侧操作区样式 */
-.right-section {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  margin-bottom: 20px;
 }
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-  .nav-section {
-    gap: 0.5rem;
-  }
-
-  .search-input {
-    width: 150px;
-  }
-
-  .nav-buttons .el-button {
-    font-size: 0.9rem;
-    padding: 8px;
+  .content-section {
+    width: 90%;
   }
 }
 
-.nav-buttons[data-v-47323bf2] {
-  display: flex;
-  gap: 1rem;
-  width: 44%;
-}
-
-
-.right-section {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.search-input {
-  width: 200px;
-  margin-right: 1rem;
-}
-
-.content {
-  flex: 1;
-  padding: 2rem;
-}
-
-.carousel-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* 保留其他必要的样式 */
+.red {
+  color: red;
 }
 
 .playlist-grid {
-  margin-top: 2rem;
-  width: 90%;
-  margin-left: 7%;
-}
-
-.music-card {
-  margin-bottom: 1rem;
-}
-
-.card-image {
   width: 100%;
-  height: 180px;
-  object-fit: cover;
-}
-
-.card-footer {
-  padding: 1rem 0;
-  text-align: center;
-}
-
-.card-footer h3 {
   margin: 0;
-  font-size: 1rem;
-}
-
-.card-footer p {
-  margin: 0.5rem 0 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.player-footer {
-  background: #fff;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
-  padding: 1rem 2rem;
-}
-
-.player-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.left-controls {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  width: 200px;
-}
-
-.progress-section {
-  flex: 1;
-  margin: 0 2rem;
-}
-
-.progress-bar :deep(.el-slider__runway) {
-  height: 4px;
-}
-
-.right-controls {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  width: 200px;
-}
-
-.volume-slider {
-  width: 100px;
-}
-
-.time {
-  font-size: 0.8rem;
-  color: #666;
-  margin-top: 0.5rem;
-  display: block;
-}
-
-.card-footer {
-  padding: 1rem 0;
-  text-align: center;
-}
-
-.card-footer h3 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.card-footer p {
-  margin: 0.5rem 0 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.player-footer {
-  background: #fff;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
-  padding: 1rem 2rem;
-}
-
-.player-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.left-controls {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  width: 200px;
-}
-
-.progress-section {
-  flex: 1;
-  margin: 0 2rem;
-}
-
-.progress-bar :deep(.el-slider__runway) {
-  height: 4px;
-}
-
-.right-controls {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  width: 200px;
-}
-
-.volume-slider {
-  width: 100px;
-}
-
-.time {
-  font-size: 0.8rem;
-  color: #666;
-  margin-top: 0.5rem;
-  display: block;
 }
 </style>
