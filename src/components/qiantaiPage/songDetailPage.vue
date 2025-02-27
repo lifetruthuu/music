@@ -20,6 +20,19 @@
           <p class="artist">歌手：{{ song.singer }}</p>
           <p class="album" v-if="song.album">专辑：{{ song.album }}</p>
           
+          <!-- 添加类型标签 -->
+          <div class="type-tags" v-if="song.typeNames && song.typeNames.length">
+            <el-tag
+              v-for="(type, index) in song.typeNames"
+              :key="index"
+              size="small"
+              effect="dark"
+              class="type-tag"
+            >
+              {{ type }}
+            </el-tag>
+          </div>
+          
           <!-- 操作按钮 -->
           <div class="action-buttons">
             <el-button 
@@ -95,6 +108,7 @@
 </template>
 
 <script>
+import api from "@/api/axios";
 export default {
   name: 'SongDetailPage',
   props: {
@@ -112,7 +126,8 @@ export default {
         album: '',
         picUrl: '',
         url: '',
-        lyrics: ''
+        lyrics: [],
+        typeNames: []
       },
       isPlaying: false,
       isLiked: false,
@@ -120,7 +135,8 @@ export default {
       duration: 0,
       progressPercentage: 0,
       parsedLyrics: [],
-      currentLyricIndex: -1
+      currentLyricIndex: -1,
+      user: null
     }
   },
   computed: {
@@ -147,66 +163,66 @@ export default {
       
       if (index !== -1 && index !== this.currentLyricIndex) {
         this.currentLyricIndex = index;
-        this.scrollToActiveLyric();
+        this.$nextTick(() => {
+          this.scrollToActiveLyric(true);
+        });
       }
     }
+  },
+  created() {
+    const userString = localStorage.getItem('user');
+    this.user = JSON.parse(userString);
   },
   methods: {
     // 获取歌曲详情
     async fetchSongDetail(id) {
       try {
-        // 这里应替换为实际的API调用
-        // const response = await this.$http.get(`/api/song/detail?id=${id}`);
-        // this.song = response.data;
-        
-        // 模拟获取的歌曲数据
-        setTimeout(() => {
+        const response = await api.post('/api/music/detail/', { musicId: id });
+        if (response.data) {
           this.song = {
-            id: id,
-            name: '示例歌曲名称',
-            singer: '示例歌手',
-            album: '示例专辑',
-            picUrl: 'https://placekitten.com/500/500', // 使用占位图
-            url: 'https://example.com/song.mp3', // 实际项目中替换为真实URL
-            lyrics: '[00:00.00]示例歌词\n[00:03.00]这是第二行歌词\n[00:06.00]这是第三行歌词\n[00:09.00]这是示例歌词的第四行\n[00:12.00]继续显示更多歌词行\n[00:15.00]让我们显示多一些的歌词\n[00:18.00]以便于测试滚动效果\n[00:21.00]这首歌非常好听\n[00:24.00]希望用户会喜欢这个界面\n[00:27.00]设计简洁易于使用'
+            id: response.data.id,
+            name: response.data.name,
+            singer: response.data.singerNames || '未知歌手',
+            album: '',
+            picUrl: this.getFullImagePath(response.data.musicPath),
+            url: this.getFullAudioPath(response.data.audioPath),
+            lyrics: response.data.lyrics || [],
+            typeNames: response.data.typeName || []
           };
+          this.isLiked = response.data.favorited === 1;
           this.parseLyrics();
-          
-          // 检查用户是否已收藏
-          this.checkIfLiked();
-        }, 500);
+        }
       } catch (error) {
         console.error('获取歌曲详情失败', error);
         this.$message.error('加载歌曲信息失败，请重试');
       }
     },
     
+    getFullImagePath(path) {
+      return path ? `http://localhost:8000${path}` : require('@/assets/1740221844832.jpg');
+    },
+
+    getFullAudioPath(path) {
+      return `http://localhost:8000${path}`;
+    },
+    
     // 解析歌词
     parseLyrics() {
-      if (!this.song.lyrics) {
+      if (!this.song.lyrics || !this.song.lyrics.length) {
         this.parsedLyrics = [];
         return;
       }
       
-      const lines = this.song.lyrics.split('\n');
-      const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2})\]/;
-      
-      this.parsedLyrics = lines
-        .map(line => {
-          const match = timeRegex.exec(line);
-          if (!match) return null;
-          
-          const minutes = parseInt(match[1]);
-          const seconds = parseInt(match[2]);
-          const milliseconds = parseInt(match[3]);
-          
-          const time = minutes * 60 + seconds + milliseconds / 100;
-          const text = line.replace(timeRegex, '').trim();
-          
-          return { time, text };
-        })
-        .filter(item => item !== null)
-        .sort((a, b) => a.time - b.time);
+      this.parsedLyrics = this.song.lyrics.map(line => {
+        const timeArr = line.time.split(':');
+        const minutes = parseInt(timeArr[0]);
+        const seconds = parseFloat(timeArr[1]);
+        
+        return {
+          time: minutes * 60 + seconds,
+          text: line.content
+        };
+      }).sort((a, b) => a.time - b.time);
     },
     
     // 播放控制
@@ -223,30 +239,26 @@ export default {
       this.isPlaying = !this.isPlaying;
     },
     
-    // 喜欢/收藏控制
+    // 喜欢
     async toggleLike() {
       try {
-        // 这里应替换为实际的API调用
-        // await this.$http.post(`/api/song/like`, { id: this.song.id, like: !this.isLiked });
-        this.isLiked = !this.isLiked;
-        this.$message.success(this.isLiked ? '已添加到我喜欢的音乐' : '已取消喜欢');
+        const url = this.isLiked ? '/api/music/deleteFavorites/' : '/api/music/favorites/';
+        const response = await api.post(url, {
+          musicId: this.song.id,
+          userId: this.user.id
+        });
+        
+        if (response.status === 'success') {
+          this.isLiked = !this.isLiked;
+          this.$message({
+            type: 'success',
+            message: this.isLiked ? '已添加到我喜欢的音乐' : '已取消喜欢',
+            duration: 1500
+          });
+        }
       } catch (error) {
         console.error('操作失败', error);
         this.$message.error('操作失败，请重试');
-      }
-    },
-    
-    // 检查是否已收藏
-    async checkIfLiked() {
-      try {
-        // 这里应替换为实际的API调用
-        // const response = await this.$http.get(`/api/user/like/check?id=${this.song.id}`);
-        // this.isLiked = response.data.isLiked;
-        
-        // 模拟API结果
-        this.isLiked = Math.random() > 0.5;
-      } catch (error) {
-        console.error('检查收藏状态失败', error);
       }
     },
     
@@ -285,7 +297,7 @@ export default {
     },
     
     // 歌词滚动
-    scrollToActiveLyric() {
+    scrollToActiveLyric(animate = false) {
       if (!this.$refs.lyricLines || this.currentLyricIndex === -1) return;
       
       this.$nextTick(() => {
@@ -293,7 +305,17 @@ export default {
         const activeElement = this.$refs.lyricLines[this.currentLyricIndex];
         
         if (container && activeElement) {
-          container.scrollTop = activeElement.offsetTop - container.offsetHeight / 2 + activeElement.offsetHeight / 2;
+          const targetScrollTop = activeElement.offsetTop - container.offsetHeight / 2 + activeElement.offsetHeight / 2;
+          
+          if (animate) {
+            // 使用平滑滚动
+            container.scrollTo({
+              top: targetScrollTop,
+              behavior: 'smooth'
+            });
+          } else {
+            container.scrollTop = targetScrollTop;
+          }
         }
       });
     },
@@ -356,6 +378,7 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 30px 0;
+  animation: fadeIn 0.6s ease-out;
 }
 
 .back-button {
@@ -365,6 +388,7 @@ export default {
   display: inline-flex;
   align-items: center;
   transition: color 0.3s;
+  animation: slideIn 0.4s ease-out;
 }
 
 .back-button:hover {
@@ -375,6 +399,7 @@ export default {
   display: flex;
   margin-bottom: 40px;
   gap: 40px;
+  animation: fadeIn 0.8s ease-out;
 }
 
 .cover-container {
@@ -382,6 +407,11 @@ export default {
   flex-shrink: 0;
   width: 300px;
   height: 300px;
+  transition: transform 0.3s ease;
+}
+
+.cover-container:hover {
+  transform: scale(1.05);
 }
 
 .song-cover {
@@ -433,6 +463,33 @@ export default {
   color: #e6e6e6;
 }
 
+.type-tags {
+  margin: 10px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.type-tag {
+  animation: tagFadeIn 0.6s ease-out;
+  transition: all 0.3s ease;
+}
+
+.type-tag:hover {
+  transform: scale(1.05);
+}
+
+@keyframes tagFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .action-buttons {
   margin-top: 25px;
   display: flex;
@@ -442,6 +499,15 @@ export default {
 .player-controls {
   margin: 30px 0;
   width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.player-controls:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .progress-container {
@@ -472,12 +538,12 @@ export default {
 .control-icon {
   font-size: 24px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 }
 
 .control-icon:hover {
   color: #409EFF;
-  transform: scale(1.1);
+  transform: scale(1.2);
 }
 
 .play-icon {
@@ -497,24 +563,99 @@ export default {
 .lyrics-scroll {
   height: 300px;
   overflow-y: auto;
-  padding: 15px;
+  padding: 20px;
   background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  scroll-behavior: smooth;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
 }
 
 .lyrics-scroll p {
   font-size: 16px;
   margin: 16px 0;
-  transition: all 0.3s;
-  opacity: 0.7;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  opacity: 0.6;
   text-align: center;
+  padding: 8px 30px;
+  line-height: 1.5;
+  cursor: default;
 }
 
 .active-lyric {
-  font-size: 18px !important;
+  font-size: 20px !important;
   font-weight: bold;
   color: #409EFF;
   opacity: 1 !important;
+  transform: scale(1.08) translateY(-2px);
+  text-shadow: 0 0 10px rgba(64, 158, 255, 0.3);
+  letter-spacing: 1px;
+}
+
+.active-lyric::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 4px;
+  height: 24px;
+  background-color: #409EFF;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  animation: lyricIndicator 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 添加歌词渐变效果 */
+.lyrics-scroll p:not(.active-lyric) {
+  transform: scale(0.95);
+}
+
+.lyrics-scroll p:not(.active-lyric):hover {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+/* 添加歌词切换动画 */
+@keyframes lyricFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1.08);
+  }
+}
+
+.active-lyric {
+  animation: lyricFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 优化滚动条样式 */
+.lyrics-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lyrics-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.lyrics-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  transition: background-color 0.3s;
+}
+
+.lyrics-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .no-lyrics {
@@ -523,30 +664,12 @@ export default {
   margin-top: 100px;
 }
 
-/* 自定义滚动条样式 */
-.lyrics-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.lyrics-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.lyrics-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-}
-
-.lyrics-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
 /* 响应式调整 */
 @media (max-width: 768px) {
   .song-info-container {
     flex-direction: column;
     align-items: center;
+    padding: 0 15px;
   }
   
   .cover-container {
@@ -561,6 +684,77 @@ export default {
   
   .action-buttons {
     justify-content: center;
+  }
+  
+  .lyrics-scroll {
+    height: 200px;
+  }
+}
+
+/* 添加新的动画样式 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* 优化播放器控件样式 */
+.player-controls {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.player-controls:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.control-icon {
+  transition: all 0.3s ease;
+}
+
+.control-icon:hover {
+  color: #409EFF;
+  transform: scale(1.2);
+}
+
+/* 优化进度条样式 */
+.progress-slider :deep(.el-slider__runway) {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.progress-slider :deep(.el-slider__bar) {
+  background-color: #409EFF;
+}
+
+.progress-slider :deep(.el-slider__button) {
+  border: 2px solid #409EFF;
+  background-color: #fff;
+  transition: transform 0.3s ease;
+}
+
+.progress-slider :deep(.el-slider__button:hover) {
+  transform: scale(1.2);
+}
+
+/* 添加暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .overlay {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+  
+  .player-controls {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  .lyrics-scroll {
+    background-color: rgba(0, 0, 0, 0.3);
   }
 }
 </style> 

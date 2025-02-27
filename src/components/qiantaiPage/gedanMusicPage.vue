@@ -39,7 +39,7 @@
         :class="{ 'even-row': index % 2 === 1 }"
       >
         <!-- 歌曲信息 -->
-        <div class="song-info">
+        <div class="song-info" @click="navigateToSongDetail(song)" style="cursor: pointer;">
           <span class="order">{{ index + 1 }}</span>
           <div class="cover-container">
             <img
@@ -232,7 +232,17 @@ export default {
         this.songs = [];
         this.totalSongs = 0;
       });
-    }
+    },
+    
+    // 添加导航到歌曲详情页的方法
+    navigateToSongDetail(song) {
+      this.$router.push({
+        name: 'SongDetail',  // 确保这是你的路由名称
+        params: { 
+          id: song.id
+        }
+      });
+    },
   }
 }
 </script>
@@ -379,6 +389,11 @@ export default {
   display: flex;
   align-items: center;
   gap: 15px;
+  transition: transform 0.2s ease;
+}
+
+.song-info:hover {
+  transform: translateX(10px);
 }
 
 .order {
