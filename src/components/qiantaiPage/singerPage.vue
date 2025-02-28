@@ -42,7 +42,7 @@ export default {
   },
   methods: {
     imagePath(artist) {
-      return artist.urlPath ? this.fullImagePath(artist.urlPath) :  require('@/assets/img_1.png');
+      return artist.urlPath ? this.fullImagePath(artist.urlPath) :  require('@/assets/img.png');
       // return this.fullImagePath(item.musicPath)
     },
     fullImagePath(path) {

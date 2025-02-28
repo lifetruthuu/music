@@ -10,7 +10,7 @@
       
       <!-- 歌曲信息区域 -->
       <div class="song-info-container">
-        <div class="cover-container">
+        <div class="cover-container" :class="{ 'playing': isPlaying }">
           <img :src="song.picUrl" alt="歌曲封面" class="song-cover" />
           <div class="disc-animation" :class="{ 'playing': isPlaying }"></div>
         </div>
@@ -19,6 +19,12 @@
           <h1 class="song-title">{{ song.name }}</h1>
           <p class="artist">歌手：{{ song.singer }}</p>
           <p class="album" v-if="song.album">专辑：{{ song.album }}</p>
+          
+          <!-- 添加歌曲介绍 -->
+          <div class="song-description" v-if="song.content">
+            <h3 class="description-title">歌曲介绍</h3>
+            <p class="description-content">{{ song.content }}</p>
+          </div>
           
           <!-- 添加类型标签 -->
           <div class="type-tags" v-if="song.typeNames && song.typeNames.length">
@@ -88,6 +94,7 @@
             :key="index"
             :class="{ 'active-lyric': currentLyricIndex === index }"
             ref="lyricLines"
+            @click="onLyricClick(line.time)"
           >
             {{ line.text }}
           </p>
@@ -115,6 +122,10 @@ export default {
     id: {
       type: [String, Number],
       required: true
+    },
+    fromGedan: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -127,7 +138,8 @@ export default {
         picUrl: '',
         url: '',
         lyrics: [],
-        typeNames: []
+        typeNames: [],
+        content: ''
       },
       isPlaying: false,
       isLiked: false,
@@ -136,7 +148,7 @@ export default {
       progressPercentage: 0,
       parsedLyrics: [],
       currentLyricIndex: -1,
-      user: null
+      user: ""
     }
   },
   computed: {
@@ -177,7 +189,8 @@ export default {
     // 获取歌曲详情
     async fetchSongDetail(id) {
       try {
-        const response = await api.post('/api/music/detail/', { musicId: id });
+        console.log("aaa", this.user.id);
+        const response = await api.post('/api/music/detail/', { musicId: id, userId: this.user.id });
         if (response.data) {
           this.song = {
             id: response.data.id,
@@ -187,7 +200,8 @@ export default {
             picUrl: this.getFullImagePath(response.data.musicPath),
             url: this.getFullAudioPath(response.data.audioPath),
             lyrics: response.data.lyrics || [],
-            typeNames: response.data.typeName || []
+            typeNames: response.data.typeName || [],
+            content: response.data.content || '暂无介绍'
           };
           this.isLiked = response.data.favorited === 1;
           this.parseLyrics();
@@ -308,16 +322,35 @@ export default {
           const targetScrollTop = activeElement.offsetTop - container.offsetHeight / 2 + activeElement.offsetHeight / 2;
           
           if (animate) {
-            // 使用平滑滚动
-            container.scrollTo({
-              top: targetScrollTop,
-              behavior: 'smooth'
-            });
+            // 使用自定义动画实现更慢的滚动
+            const currentScrollTop = container.scrollTop;
+            const distance = targetScrollTop - currentScrollTop;
+            const duration = 1000; // 增加到1秒
+            const startTime = performance.now();
+            
+            const animateScroll = (currentTime) => {
+              const elapsedTime = currentTime - startTime;
+              if (elapsedTime < duration) {
+                // 使用缓动函数使动画更自然
+                const progress = this.easeInOutCubic(elapsedTime / duration);
+                container.scrollTop = currentScrollTop + distance * progress;
+                requestAnimationFrame(animateScroll);
+              } else {
+                container.scrollTop = targetScrollTop;
+              }
+            };
+            
+            requestAnimationFrame(animateScroll);
           } else {
             container.scrollTop = targetScrollTop;
           }
         }
       });
+    },
+    
+    // 添加缓动函数
+    easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     },
     
     // 上一首/下一首
@@ -333,7 +366,21 @@ export default {
     
     // 返回上一页
     goBack() {
-      this.$router.go(-1);
+      if (this.fromGedan) {
+        this.$router.go(-1); // 返回歌单页面
+      } else {
+        this.$router.push('/'); // 返回首页
+      }
+    },
+    
+    // 添加歌词点击跳转方法
+    onLyricClick(time) {
+      if (this.$refs.audioPlayer) {
+        this.$refs.audioPlayer.currentTime = time;
+        if (!this.isPlaying) {
+          this.togglePlay();
+        }
+      }
     }
   },
   beforeDestroy() {
@@ -353,11 +400,12 @@ export default {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  color: #fff;
+  color: #333;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background-color: #f0f2f5;
 }
 
 .overlay {
@@ -366,8 +414,8 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(20px);
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
   z-index: 1;
 }
 
@@ -377,8 +425,11 @@ export default {
   width: 90%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 30px 0;
-  animation: fadeIn 0.6s ease-out;
+  padding: 30px;
+  animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .back-button {
@@ -420,6 +471,23 @@ export default {
   object-fit: cover;
   border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  transition: all 0.5s ease;
+}
+
+.cover-container:hover .song-cover,
+.playing .song-cover {
+  transform: rotate(5deg);
+}
+
+/* 添加封面旋转动画 */
+@keyframes coverRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.playing .song-cover {
+  animation: coverRotate 20s linear infinite;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
 }
 
 .disc-animation {
@@ -460,7 +528,7 @@ export default {
 .artist, .album {
   font-size: 18px;
   margin: 5px 0;
-  color: #e6e6e6;
+  color: #666; /* 加深歌手颜色 */
 }
 
 .type-tags {
@@ -471,22 +539,36 @@ export default {
 }
 
 .type-tag {
-  animation: tagFadeIn 0.6s ease-out;
-  transition: all 0.3s ease;
+  background: #409EFF !important;
+  color: white !important;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: tagFadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
 }
 
 .type-tag:hover {
-  transform: scale(1.05);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
 }
 
 @keyframes tagFadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(30px);
+    filter: blur(10px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+    filter: blur(0);
   }
 }
 
@@ -499,15 +581,16 @@ export default {
 .player-controls {
   margin: 30px 0;
   width: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 20px;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .player-controls:hover {
-  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .progress-container {
@@ -519,7 +602,7 @@ export default {
 .time-info {
   width: 50px;
   font-size: 14px;
-  color: #e6e6e6;
+  color: #666;
 }
 
 .progress-slider {
@@ -553,6 +636,11 @@ export default {
 .lyrics-container {
   margin-top: 40px;
   width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .lyrics-title {
@@ -564,10 +652,12 @@ export default {
   height: 300px;
   overflow-y: auto;
   padding: 20px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.8);
   border-radius: 12px;
-  transition: all 0.3s ease;
-  scroll-behavior: smooth;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  perspective: 1000px;
+  transform-style: preserve-3d;
+  scroll-behavior: smooth; /* 确保平滑滚动 */
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
@@ -580,47 +670,77 @@ export default {
 .lyrics-scroll p {
   font-size: 16px;
   margin: 16px 0;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  opacity: 0.6;
+  opacity: 0.7;
   text-align: center;
-  padding: 8px 30px;
+  padding: 12px 30px;
   line-height: 1.5;
-  cursor: default;
+  cursor: pointer;
+  transform: translateZ(0) rotateX(0);
+  transform-origin: center center;
+  color: #666;
+  border-radius: 8px;
+}
+
+.lyrics-scroll p:not(.active-lyric) {
+  transform: translateZ(0) scale(0.95);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lyrics-scroll p:not(.active-lyric):hover {
+  transform: translateZ(15px) scale(1.02);
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .active-lyric {
   font-size: 20px !important;
   font-weight: bold;
-  color: #409EFF;
+  color: #409EFF !important;
   opacity: 1 !important;
-  transform: scale(1.08) translateY(-2px);
+  transform: translateZ(30px) scale(1.08) !important;
   text-shadow: 0 0 10px rgba(64, 158, 255, 0.3);
   letter-spacing: 1px;
+  animation: lyricPulse 3s infinite cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15) !important;
 }
 
-.active-lyric::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 4px;
-  height: 24px;
-  background-color: #409EFF;
-  transform: translateY(-50%);
-  border-radius: 2px;
-  animation: lyricIndicator 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+@keyframes lyricPulse {
+  0% {
+    transform: translateZ(30px) scale(1.08);
+    box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15);
+  }
+  50% {
+    transform: translateZ(40px) scale(1.1);
+    box-shadow: 0 12px 28px rgba(64, 158, 255, 0.25);
+  }
+  100% {
+    transform: translateZ(30px) scale(1.08);
+    box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15);
+  }
+}
+
+.lyrics-scroll p:not(.active-lyric) {
+  transform: translateZ(0) rotateX(0);
+  transition: all 0.3s ease;
+}
+
+.lyrics-scroll p:not(.active-lyric):hover {
+  transform: translateZ(15px) scale(1.05);
+  opacity: 0.8;
 }
 
 /* 添加歌词渐变效果 */
-.lyrics-scroll p:not(.active-lyric) {
+/* .lyrics-scroll p:not(.active-lyric) {
   transform: scale(0.95);
 }
 
 .lyrics-scroll p:not(.active-lyric):hover {
   opacity: 0.8;
   transform: scale(0.98);
-}
+} */
 
 /* 添加歌词切换动画 */
 @keyframes lyricFadeIn {
@@ -630,7 +750,7 @@ export default {
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1.08);
+    transform: translateY(0) translateZ(30px) scale(1.08);
   }
 }
 
@@ -693,26 +813,43 @@ export default {
 
 /* 添加新的动画样式 */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translateY(30px);
+    filter: blur(10px);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
 
 @keyframes slideIn {
-  from { transform: translateX(-20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from { 
+    transform: translateX(-30px);
+    opacity: 0;
+    filter: blur(5px);
+  }
+  to { 
+    transform: translateX(0);
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 
 /* 优化播放器控件样式 */
 .player-controls {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 20px;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .player-controls:hover {
-  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .control-icon {
@@ -726,17 +863,21 @@ export default {
 
 /* 优化进度条样式 */
 .progress-slider :deep(.el-slider__runway) {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(0, 0, 0, 0.1);
+  height: 6px;
 }
 
 .progress-slider :deep(.el-slider__bar) {
   background-color: #409EFF;
+  height: 6px;
 }
 
 .progress-slider :deep(.el-slider__button) {
   border: 2px solid #409EFF;
   background-color: #fff;
   transition: transform 0.3s ease;
+  width: 16px;
+  height: 16px;
 }
 
 .progress-slider :deep(.el-slider__button:hover) {
@@ -756,5 +897,34 @@ export default {
   .lyrics-scroll {
     background-color: rgba(0, 0, 0, 0.3);
   }
+}
+
+.song-description {
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  border-left: 4px solid #409EFF;
+  transition: all 0.3s ease;
+}
+
+.song-description:hover {
+  transform: translateX(5px);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.description-title {
+  font-size: 18px;
+  color: #409EFF;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.description-content {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.6;
+  text-align: justify;
 }
 </style> 

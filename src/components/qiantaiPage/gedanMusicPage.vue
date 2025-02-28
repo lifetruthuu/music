@@ -237,9 +237,10 @@ export default {
     // 添加导航到歌曲详情页的方法
     navigateToSongDetail(song) {
       this.$router.push({
-        name: 'SongDetail',  // 确保这是你的路由名称
+        name: 'SongDetail',
         params: { 
-          id: song.id
+          id: song.id,
+          fromGedan: true
         }
       });
     },
