@@ -236,13 +236,9 @@ export default {
     
     // 添加导航到歌曲详情页的方法
     navigateToSongDetail(song) {
-      this.$router.push({
-        name: 'SongDetail',
-        params: { 
-          id: song.id,
-          fromGedan: true
-        }
-      });
+      // 通过事件机制触发跳转
+      console.log("[gedanMusicPage] 触发歌曲详情跳转事件，歌曲ID:", song.id);
+      this.$emit("onGoToSongDetail", song.id);
     },
   }
 }

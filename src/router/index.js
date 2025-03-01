@@ -5,6 +5,7 @@ import Register from '../components/register.vue';
 import Index from '../components/index.vue';
 import Houtai from '../components/houtai.vue';
 import SongDetailPage from '../components/qiantaiPage/songDetailPage.vue'
+import SingerDetailPage from '../components/qiantaiPage/singerDetailPage.vue'
 Vue.use(VueRouter);
 
 
@@ -35,6 +36,12 @@ const routes = [
         path: '/song/:id',
         name: 'SongDetail',
         component: SongDetailPage,
+        props: true
+    },
+    {
+        path: '/singer/:singerId',
+        name: 'SingerDetail',
+        component: SingerDetailPage,
         props: true
     },
 ];

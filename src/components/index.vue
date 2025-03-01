@@ -9,11 +9,19 @@
       <component :is="currentComponent"
                  @onQuerySingerMusic="onQuerySingerMusic"
                  @onGeDan="onGeDan"
+                 @onBackToSinger="onBackToSinger"
+                 @onBackToGedan="onBackToGedan"
+                 @onBackToHome="onBackToHome"
                  @onMusicListByGedan="onMusicListByGedan"
+                 @onGoToSongDetail="onGoToSongDetail"
+                 @onGoToSongDetailFromSinger="onGoToSongDetailFromSinger"
                  :queryStr="queryStr"
                  :index="index"
                  :geDanId="geDanId"
-                 :singerId="singerId"/>
+                 :singerId="singerId"
+                 :fromGedan="songSource === 'gedan'"
+                 :fromSinger="songSource === 'singer'"
+                 :id="currentMusicId"/>
     </div>
 
 
@@ -31,10 +39,12 @@ import myMusicPage from '@/components/qiantaiPage/myMusicPage.vue';
 import tuijianPage from '@/components/qiantaiPage/tuijianPage.vue';
 import gedanPage from '@/components/qiantaiPage/gedanPage.vue';
 import gedanMusicPage from '@/components/qiantaiPage/gedanMusicPage.vue';
+import singerDetailPage from '@/components/qiantaiPage/singerDetailPage.vue';
+import songDetailPage from '@/components/qiantaiPage/songDetailPage.vue';
 
 export default{
   components:{
-    Header,YongHuPage,MusicPage,SingerPage,myMusicPage,tuijianPage,gedanPage,gedanMusicPage
+    Header,YongHuPage,MusicPage,SingerPage,myMusicPage,tuijianPage,gedanPage,gedanMusicPage,singerDetailPage,songDetailPage
   },
   data(){
     return{
@@ -88,9 +98,21 @@ export default{
       }, 
       {
         key: 'gedanMusicPage',
-        name: '我的音乐',
+        name: '歌单音乐',
         active: false,
         component: gedanMusicPage,
+      },
+      {
+        key: 'singerDetailPage',
+        name: '歌手详细',
+        active: false,
+        component: singerDetailPage,
+      },
+      {
+        key: 'songDetailPage',
+        name: '歌曲详情',
+        active: false,
+        component: songDetailPage,
       },
       {
         key: 'tuijianPage',
@@ -103,6 +125,9 @@ export default{
       geDanId: null,
       queryStr: null,
       index: null,
+      // 新增：记录歌曲详情页的来源
+      songSource: null,
+      previousComponent: null  // 记录前一个组件
     }
   },
   computed: {
@@ -118,16 +143,68 @@ export default{
     },
   },
   methods:{
+    // 处理歌曲详情页面的返回事件
+    onBackToGedan() {
+      console.log("[index] 收到返回歌单事件");
+      this.currentComponent = gedanMusicPage;
+      this.currentPageCode = 'gedanMusicPage';
+    },
+    
+    onBackToSinger() {
+      console.log("[index] 收到返回歌手详情事件");
+      this.currentComponent = singerDetailPage;
+      this.currentPageCode = 'singerDetailPage';
+    },
+    
+    onBackToHome() {
+      console.log("[index] 收到返回首页事件");
+      this.currentComponent = YongHuPage;
+      this.currentPageCode = 'YongHuPage';
+    },
+
+    // 处理从歌单中点击歌曲进入详情页
+    onGoToSongDetail(songId) {
+      // 保存当前组件作为返回目标
+      this.previousComponent = this.currentComponent;
+      this.songSource = 'gedan';
+      
+      // 设置歌曲ID并切换到歌曲详情页
+      this.currentMusicId = songId;
+      this.currentComponent = songDetailPage;
+      this.currentPageCode = 'songDetailPage';
+    },
+    
+    // 处理从歌手详情页点击歌曲进入详情页
+    onGoToSongDetailFromSinger(songId) {
+      // 保存当前组件作为返回目标
+      this.previousComponent = this.currentComponent;
+      this.songSource = 'singer';
+      
+      // 设置歌曲ID并切换到歌曲详情页
+      this.currentMusicId = songId;
+      this.currentComponent = songDetailPage;
+      this.currentPageCode = 'songDetailPage';
+    },
+
     onQuerySingerMusic(item){
       this.singerId = item;
-      this.currentPageCode ='musicPage';
-      this.currentComponent = MusicPage; // 切换到用户管理页面
+      this.currentComponent = singerDetailPage; // 切换到歌手详情页面
+      this.currentPageCode = 'singerDetailPage';
     },
     onMusicListByGedan(args){
       this.geDanId = args.geDanId;
       this.index = args.index;
       this.currentComponent = gedanMusicPage; // 切换到用户管理页面
       this.currentPageCode = 'gedanMusicPage'
+    },
+    onBackToSinger(){
+      // 找到singerPage在menu数组中的索引
+      const singerPageIndex = this.menu.findIndex(item => item.key === 'singerPage');
+      if(singerPageIndex !== -1) {
+        this.currentComponent = SingerPage; // 切换到歌手页面
+        this.currentPageCode = 'singerPage';
+        this.singerId = null; // 清除歌手ID
+      }
     },
     onGeDan(index){
       this.oChangeSearchMenu({index:index,queryStr:null})
