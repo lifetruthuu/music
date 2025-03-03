@@ -16,11 +16,19 @@
     <!-- 歌单网格 - 70%宽度 -->
     <div class="content-section">
       <h3 class="section-title">歌单</h3>
-      <div class="playlist-grid">
-        <el-row :gutter="20">
+      <div class="playlist-grid" v-loading="loadingGedans" element-loading-text="加载歌单中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
+        <div v-if="loadingGedans" class="loading-skeleton">
+          <div class="skeleton-card" v-for="index in 6" :key="'gedan-' + index"></div>
+        </div>
+        <transition-group 
+          tag="el-row" 
+          name="item-fade" 
+          :gutter="20" 
+          v-else
+        >
           <el-col
               v-for="(item, index) in tableData"
-              :key="index"
+              :key="item.id || index"
               :xs="12"
               :sm="6"
               :md="6"
@@ -36,18 +44,26 @@
               </div>
             </el-card>
           </el-col>
-        </el-row>
+        </transition-group>
       </div>
     </div>
 
     <!-- 推荐歌曲 - 70%宽度 -->
     <div class="content-section">
       <h3 class="section-title">推荐歌曲</h3>
-      <div class="playlist-grid">
-        <el-row :gutter="20">
+      <div class="playlist-grid" v-loading="loadingSongs" element-loading-text="加载推荐歌曲中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
+        <div v-if="loadingSongs" class="loading-skeleton">
+          <div class="skeleton-card" v-for="index in 6" :key="'song-' + index"></div>
+        </div>
+        <transition-group 
+          tag="el-row" 
+          name="item-fade" 
+          :gutter="20" 
+          v-else
+        >
           <el-col
               v-for="(item, index) in songs"
-              :key="index"
+              :key="item.id || index"
               :xs="12"
               :sm="6"
               :md="6"
@@ -63,7 +79,7 @@
               </div>
             </el-card>
           </el-col>
-        </el-row>
+        </transition-group>
       </div>
     </div>
 
@@ -112,6 +128,8 @@ export default {
       showPlayer: false,
       mouseY: 0,
       windowHeight: 0,
+      loadingGedans: false, // 加载歌单状态
+      loadingSongs: false  // 加载歌曲状态
     }
   },
   computed: {
@@ -222,6 +240,7 @@ export default {
     },
     initData() {
       const queryStr = this.searchKey || '';
+      this.loadingGedans = true; // 开始加载歌单，显示动画
       api.post('/api/music/gedanList/', {
         queryStr,
         pageNum: 1,
@@ -230,9 +249,12 @@ export default {
         this.tableData = res.list;
       }).catch(err => {
         console.error('请求失败:', err);
+      }).finally(() => {
+        this.loadingGedans = false; // 加载完成，隐藏动画
       });
     },
     queryTuijianSongs(){
+      this.loadingSongs = true; // 开始加载推荐歌曲，显示动画
       api.post('/api/music/tuijianSongs/', {
         userId: this.userId,
         pageNum: 1,
@@ -241,6 +263,8 @@ export default {
         this.songs = res.list
       }).catch(err => {
         console.error('请求失败:', err);
+      }).finally(() => {
+        this.loadingSongs = false; // 加载完成，隐藏动画
       });
     },
     queryUserFavitory() {
@@ -435,5 +459,92 @@ export default {
 .playlist-grid {
   width: 100%;
   margin: 0;
+}
+
+/* 加载骨架屏样式 */
+.loading-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.skeleton-card {
+  height: 290px; /* 卡片高度 = 图片高度(180px) + 底部高度(110px) */
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 元素加载动画 */
+.el-loading-spinner .el-icon-loading {
+  font-size: 30px;
+  color: #409EFF;
+}
+
+.el-loading-spinner .el-loading-text {
+  font-size: 14px;
+  margin-top: 10px;
+  color: #409EFF;
+}
+
+/* 列表项进入动画 */
+.item-fade-enter-active {
+  transition: all 0.6s ease;
+  transition-delay: calc(0.1s * v-bind('$index'));
+}
+
+.item-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.item-fade-enter {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.item-fade-leave-to {
+  opacity: 0;
+}
+
+/* 为每个列表项添加不同的延迟，实现错落的动画效果 */
+.el-col:nth-child(1) .music-card { animation-delay: 0.05s; }
+.el-col:nth-child(2) .music-card { animation-delay: 0.1s; }
+.el-col:nth-child(3) .music-card { animation-delay: 0.15s; }
+.el-col:nth-child(4) .music-card { animation-delay: 0.2s; }
+.el-col:nth-child(5) .music-card { animation-delay: 0.25s; }
+.el-col:nth-child(6) .music-card { animation-delay: 0.3s; }
+
+/* 添加一个默认的卡片动画 */
+.music-card {
+  animation: cardFadeIn 0.6s ease forwards;
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+.playlist-grid:not(.el-loading-parent--relative) .music-card {
+  animation-play-state: running;
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

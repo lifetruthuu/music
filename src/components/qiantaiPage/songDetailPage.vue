@@ -130,6 +130,10 @@ export default {
     fromSinger: {
       type: Boolean,
       default: false
+    },
+    fromMyMusic: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -189,7 +193,7 @@ export default {
   created() {
     const userString = localStorage.getItem('user');
     this.user = JSON.parse(userString);
-    console.log("[songDetailPage] 初始化，来源: ", this.fromGedan ? "歌单" : this.fromSinger ? "歌手详情" : "其他");
+    console.log("[songDetailPage] 初始化，来源: ", this.fromGedan ? "歌单" : this.fromSinger ? "歌手详情" : this.fromMyMusic ? "我的音乐" : "其他");
   },
   methods: {
     // 获取歌曲详情
@@ -227,6 +231,9 @@ export default {
       } else if (this.fromSinger) {
         console.log("[songDetailPage] 触发返回歌手详情事件");
         this.$emit("onBackToSinger");
+      } else if (this.fromMyMusic) {
+        console.log("[songDetailPage] 触发返回我的音乐事件");
+        this.$emit("onBackToMyMusic");
       } else {
         // 默认返回首页
         console.log("[songDetailPage] 触发返回首页事件");

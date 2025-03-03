@@ -6,7 +6,7 @@
     </div>
 
     <!-- 歌单信息头部 -->
-    <div class="gedan-header">
+    <div class="gedan-header" v-loading="loadingGedan" element-loading-text="加载歌单信息中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
       <div class="gedan-cover">
         <img :src="gedanCover" alt="歌单封面" class="cover-image" />
       </div>
@@ -22,7 +22,7 @@
     </div>
 
     <!-- 歌曲列表 -->
-    <div class="music-list">
+    <div class="music-list" v-loading="loading" element-loading-text="加载歌曲中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
       <!-- 表头 -->
       <div class="header">
         <span class="song-title">歌曲标题</span>
@@ -32,51 +32,53 @@
       </div>
 
       <!-- 歌曲列表 -->
-      <div 
-        class="song-item" 
-        v-for="(song, index) in songs" 
-        :key="index"
-        :class="{ 'even-row': index % 2 === 1 }"
-      >
-        <!-- 歌曲信息 -->
-        <div class="song-info" @click="navigateToSongDetail(song)" style="cursor: pointer;">
-          <span class="order">{{ index + 1 }}</span>
-          <div class="cover-container">
-            <img
-              :src="imagePath(song)"
-              alt="音乐封面"
-              class="music-cover"
-            />
+      <transition-group name="song-item" tag="div" class="song-list-container">
+        <div 
+          class="song-item" 
+          v-for="(song, index) in songs" 
+          :key="song.id || index"
+          :class="{ 'even-row': index % 2 === 1 }"
+        >
+          <!-- 歌曲信息 -->
+          <div class="song-info" @click="navigateToSongDetail(song)" style="cursor: pointer;">
+            <span class="order">{{ index + 1 }}</span>
+            <div class="cover-container">
+              <img
+                :src="imagePath(song)"
+                alt="音乐封面"
+                class="music-cover"
+              />
+            </div>
+            <span class="title">{{ song.name }}</span>
           </div>
-          <span class="title">{{ song.name }}</span>
-        </div>
 
-        <!-- 播放控件 -->
-        <div class="song-duration">
-          <audio controls class="audio-player" @play="handlePlay">
-            <source :src="getFullAudioPath(song.audioPath)" type="audio/mpeg">
-          </audio>
-        </div>
+          <!-- 播放控件 -->
+          <div class="song-duration">
+            <audio controls class="audio-player" @play="handlePlay">
+              <source :src="getFullAudioPath(song.audioPath)" type="audio/mpeg">
+            </audio>
+          </div>
 
-        <!-- 歌手信息 -->
-        <div class="song-artist">
-          <span v-for="(singer, idx) in song.singers" :key="singer.id" class="artist-info">
-            {{ singer.name }}{{ idx < song.singers.length - 1 ? '/' : '' }}
-          </span>
-        </div>
+          <!-- 歌手信息 -->
+          <div class="song-artist">
+            <span v-for="(singer, idx) in song.singers" :key="singer.id" class="artist-info">
+              {{ singer.name }}{{ idx < song.singers.length - 1 ? '/' : '' }}
+            </span>
+          </div>
 
-        <!-- 收藏按钮 -->
-        <div class="song-actions">
-          <i
-            :class="[
-              song.favorited == 1 ? 'el-icon-star-on red' : 'el-icon-star-off',
-              'favorite-icon',
-              { 'animate-favorite': song.isAnimating }
-            ]"
-            @click="onFavitory(song)"
-          ></i>
+          <!-- 收藏按钮 -->
+          <div class="song-actions">
+            <i
+              :class="[
+                song.favorited == 1 ? 'el-icon-star-on red' : 'el-icon-star-off',
+                'favorite-icon',
+                { 'animate-favorite': song.isAnimating }
+              ]"
+              @click="onFavitory(song)"
+            ></i>
+          </div>
         </div>
-      </div>
+      </transition-group>
 
       <!-- 添加分页组件 -->
       <Pagination
@@ -126,7 +128,9 @@ export default {
       gedanDescription: "",
       currentPage: 1,
       pageSize: 10,
-      totalSongs: 0
+      totalSongs: 0,
+      loading: false,  // 添加加载状态
+      loadingGedan: false  // 歌单信息加载状态
     }
   },
   
@@ -141,6 +145,7 @@ export default {
     fetchGedanInfo() {
       // 如果有歌单ID，获取歌单详情
       if (this.geDanId) {
+        this.loadingGedan = true;  // 开始加载，显示动画
         api.post(`/api/music/gedanList/`, {geDanId:this.geDanId}).then(res => {
           if (res.list.length > 0) {
             this.gedanTitle = res.list[0].name || "精选歌单";
@@ -150,6 +155,8 @@ export default {
           }
         }).catch(err => {
           console.error('获取歌单信息失败:', err);
+        }).finally(() => {
+          this.loadingGedan = false;  // 加载完成，隐藏动画
         });
       }
     },
@@ -210,6 +217,8 @@ export default {
     },
     
     initData() {
+      this.loading = true;  // 开始加载，显示动画
+      
       let params = {
         pageNum: this.currentPage,
         pageSize: this.pageSize,
@@ -231,6 +240,8 @@ export default {
         console.error('请求失败:', err);
         this.songs = [];
         this.totalSongs = 0;
+      }).finally(() => {
+        this.loading = false;  // 加载完成，隐藏动画
       });
     },
     
@@ -362,6 +373,64 @@ export default {
   color: #606266;
   border-bottom: 1px solid #ebeef5;
 }
+
+/* 歌曲列表容器 */
+.song-list-container {
+  position: relative;
+  min-height: 100px;
+}
+
+/* 歌曲项动画 */
+.song-item-enter-active {
+  transition: all 0.5s ease;
+  transition-delay: calc(0.05s * var(--index, 0));
+}
+
+.song-item-leave-active {
+  transition: all 0.3s ease;
+  position: absolute;
+  width: 100%;
+}
+
+.song-item-enter {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.song-item-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+/* 为歌曲项添加序列动画 */
+.song-item {
+  animation: songFadeIn 0.5s ease forwards;
+  animation-delay: calc(0.05s * var(--index, 0));
+  opacity: 0;
+}
+
+@keyframes songFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 使歌曲项具有不同的动画延迟 */
+.song-item:nth-child(1) { --index: 0; }
+.song-item:nth-child(2) { --index: 1; }
+.song-item:nth-child(3) { --index: 2; }
+.song-item:nth-child(4) { --index: 3; }
+.song-item:nth-child(5) { --index: 4; }
+.song-item:nth-child(6) { --index: 5; }
+.song-item:nth-child(7) { --index: 6; }
+.song-item:nth-child(8) { --index: 7; }
+.song-item:nth-child(9) { --index: 8; }
+.song-item:nth-child(10) { --index: 9; }
 
 /* 歌曲项布局 */
 .song-item {
@@ -532,19 +601,5 @@ export default {
     justify-content: center;
     margin-top: 10px;
   }
-}
-
-/* 可以添加一些过渡动画 */
-.song-item {
-  transition: all 0.3s ease-in-out;
-}
-
-.song-item-enter-active, .song-item-leave-active {
-  transition: all 0.3s;
-}
-
-.song-item-enter, .song-item-leave-to {
-  opacity: 0;
-  transform: translateY(30px);
 }
 </style>

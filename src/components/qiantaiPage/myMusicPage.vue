@@ -108,7 +108,7 @@
           :key="song.id"
           :class="{ 'even-row': index % 2 === 1, 'playing': currentSong?.id === song.id }"
         >
-          <div class="song-info" @click="playSong(song, index)">
+          <div class="song-info" @click="goToSongDetail(song)">
             <span class="order">{{ index + 1 }}</span>
             <div class="cover-container">
               <img
@@ -159,10 +159,8 @@
         v-if="totalSongs > 0"
         :total="totalSongs"
         :page-size="pageSize"
-        :current-page="pageNum"
+        :current-page.sync="pageNum"
         @change="handleCurrentChange"
-        @update:currentPage="handleCurrentChange"
-        class="pagination"
       />
     </div>
 
@@ -631,8 +629,8 @@ export default {
       });
       this.recordPlayHistory(song.id);
       
-      // 触发跳转到歌曲详情页事件
-      this.$emit('onGoToSongDetail', song.id);
+      // 不再触发跳转到歌曲详情页事件
+      // this.$emit('onGoToSongDetailFromMyMusic', song.id);
     },
     
     togglePlay(song, index) {
@@ -654,6 +652,11 @@ export default {
     
     handleResize() {
       this.windowHeight = window.innerHeight;
+    },
+
+    goToSongDetail(song) {
+      // 触发跳转到歌曲详情页事件
+      this.$emit('onGoToSongDetailFromMyMusic', song.id);
     }
   }
 }
@@ -1019,46 +1022,6 @@ export default {
   font-size: 16px;
   color: #909399;
   margin-bottom: 20px;
-}
-
-/* 分页器样式 */
-.pagination {
-  margin-top: 30px;
-  text-align: center;
-}
-
-/* 确保Pagination组件与页面风格一致 */
-.pagination >>> .pagination-wrapper {
-  background: transparent;
-  box-shadow: none;
-  padding: 10px;
-}
-
-.pagination >>> .page-num {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  margin: 0 5px;
-}
-
-.pagination >>> .page-num.active {
-  background-color: #8e44ad;
-  color: #fff;
-}
-
-.pagination >>> .page-btn {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-
-.pagination >>> .page-jump,
-.pagination >>> .total-info {
-  color: #fff;
-}
-
-.pagination >>> .jump-input >>> .el-input__inner {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* 确认弹窗样式 */

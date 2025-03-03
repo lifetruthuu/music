@@ -6,22 +6,28 @@
     <!-- 中部内容 -->
 
     <div class="content">
-      <component :is="currentComponent"
-                 @onQuerySingerMusic="onQuerySingerMusic"
-                 @onGeDan="onGeDan"
-                 @onBackToSinger="onBackToSinger"
-                 @onBackToGedan="onBackToGedan"
-                 @onBackToHome="onBackToHome"
-                 @onMusicListByGedan="onMusicListByGedan"
-                 @onGoToSongDetail="onGoToSongDetail"
-                 @onGoToSongDetailFromSinger="onGoToSongDetailFromSinger"
-                 :queryStr="queryStr"
-                 :index="index"
-                 :geDanId="geDanId"
-                 :singerId="singerId"
-                 :fromGedan="songSource === 'gedan'"
-                 :fromSinger="songSource === 'singer'"
-                 :id="currentMusicId"/>
+      <transition name="fade" mode="out-in">
+        <component :is="currentComponent"
+                   @onQuerySingerMusic="onQuerySingerMusic"
+                   @onGeDan="onGeDan"
+                   @onBackToSinger="onBackToSinger"
+                   @onBackToSingerList="onBackToSingerList"
+                   @onBackToGedan="onBackToGedan"
+                   @onBackToHome="onBackToHome"
+                   @onBackToMyMusic="onBackToMyMusic"
+                   @onMusicListByGedan="onMusicListByGedan"
+                   @onGoToSongDetail="onGoToSongDetail"
+                   @onGoToSongDetailFromSinger="onGoToSongDetailFromSinger"
+                   @onGoToSongDetailFromMyMusic="onGoToSongDetailFromMyMusic"
+                   :queryStr="queryStr"
+                   :index="index"
+                   :geDanId="geDanId"
+                   :singerId="singerId"
+                   :fromGedan="songSource === 'gedan'"
+                   :fromSinger="songSource === 'singer'"
+                   :fromMyMusic="songSource === 'myMusic'"
+                   :id="currentMusicId"/>
+      </transition>
     </div>
 
 
@@ -146,14 +152,45 @@ export default{
     // 处理歌曲详情页面的返回事件
     onBackToGedan() {
       console.log("[index] 收到返回歌单事件");
-      this.currentComponent = gedanMusicPage;
-      this.currentPageCode = 'gedanMusicPage';
+      // 使用previousComponent可以确保返回到正确的gedanMusicPage组件
+      if (this.previousComponent) {
+        console.log("[index] 返回到之前的组件：", this.previousComponent.name || 'unknown');
+        this.currentComponent = gedanMusicPage; // 始终设置为gedanMusicPage
+        this.currentPageCode = 'gedanMusicPage';
+        // 不清除gedanId，保持原来的参数
+      } else {
+        console.log("[index] 没有之前的组件记录，默认返回到gedanMusicPage");
+        this.currentComponent = gedanMusicPage;
+        this.currentPageCode = 'gedanMusicPage';
+      }
     },
     
+    // 处理从歌手详情页返回歌手列表页的事件
+    onBackToSingerList() {
+      console.log("[index] 收到返回歌手列表事件");
+      this.currentComponent = SingerPage;
+      this.currentPageCode = 'singerPage';
+      this.singerId = null; // 清除歌手ID
+    },
+    
+    // 处理从歌曲详情页返回歌手详情页的事件
     onBackToSinger() {
       console.log("[index] 收到返回歌手详情事件");
-      this.currentComponent = singerDetailPage;
-      this.currentPageCode = 'singerDetailPage';
+      
+      // 从歌曲详情页返回到歌手详情页
+      if (this.currentPageCode === 'songDetailPage' && this.songSource === 'singer') {
+        console.log("[index] 从歌曲详情页返回到歌手详情页");
+        this.currentComponent = singerDetailPage;
+        this.currentPageCode = 'singerDetailPage';
+        // 保留singerId，确保显示的是同一个歌手的详情
+      } 
+      // 其他情况，默认返回歌手列表
+      else {
+        console.log("[index] 其他情况，默认返回到歌手列表页");
+        this.currentComponent = SingerPage;
+        this.currentPageCode = 'singerPage';
+        this.singerId = null;
+      }
     },
     
     onBackToHome() {
@@ -192,19 +229,23 @@ export default{
       this.currentPageCode = 'singerDetailPage';
     },
     onMusicListByGedan(args){
+      // 添加过渡动画标记
+      document.body.classList.add('page-transitioning');
+      
+      // 设置参数
       this.geDanId = args.geDanId;
       this.index = args.index;
-      this.currentComponent = gedanMusicPage; // 切换到用户管理页面
-      this.currentPageCode = 'gedanMusicPage'
-    },
-    onBackToSinger(){
-      // 找到singerPage在menu数组中的索引
-      const singerPageIndex = this.menu.findIndex(item => item.key === 'singerPage');
-      if(singerPageIndex !== -1) {
-        this.currentComponent = SingerPage; // 切换到歌手页面
-        this.currentPageCode = 'singerPage';
-        this.singerId = null; // 清除歌手ID
-      }
+      
+      // 使用setTimeout确保动画效果可见
+      setTimeout(() => {
+        this.currentComponent = gedanMusicPage; // 切换到歌单音乐页面
+        this.currentPageCode = 'gedanMusicPage';
+        
+        // 移除过渡动画标记
+        setTimeout(() => {
+          document.body.classList.remove('page-transitioning');
+        }, 300);
+      }, 50);
     },
     onGeDan(index){
       this.oChangeSearchMenu({index:index,queryStr:null})
@@ -342,7 +383,25 @@ export default{
         this.tableData = [];
         this.page.total = 0;
       });
-    }
+    },
+
+    onBackToMyMusic() {
+      console.log("[index] 收到返回我的音乐事件");
+      this.currentComponent = myMusicPage;
+      this.currentPageCode = 'myMusicPage';
+    },
+
+    // 处理从我的音乐页面点击歌曲进入详情页
+    onGoToSongDetailFromMyMusic(songId) {
+      // 保存当前组件作为返回目标
+      this.previousComponent = this.currentComponent;
+      this.songSource = 'myMusic';
+      
+      // 设置歌曲ID并切换到歌曲详情页
+      this.currentMusicId = songId;
+      this.currentComponent = songDetailPage;
+      this.currentPageCode = 'songDetailPage';
+    },
   },
 
   created() {
@@ -551,5 +610,57 @@ export default{
   color: #666;
   margin-top: 0.5rem;
   display: block;
+}
+
+/* 添加组件切换动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 组件切换动画 - 增强版 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1), 
+              transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-30px);
+}
+
+/* 增强特定页面转场动画 */
+.fade-enter-active.gedan-transition,
+.fade-leave-active.gedan-transition {
+  transition: opacity 0.4s ease-in-out, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.fade-enter-from.gedan-transition,
+.fade-leave-to.gedan-transition {
+  opacity: 0;
+  transform: translateY(30px) scale(0.95);
+}
+
+/* 页面过渡中的全局状态 */
+:global(.page-transitioning) .content {
+  overflow: hidden;
 }
 </style>

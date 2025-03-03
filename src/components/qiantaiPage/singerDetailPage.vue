@@ -204,7 +204,8 @@ export default {
     // 返回上一页
     goBack() {
       // 通过触发事件返回到歌手列表页
-      this.$emit("onBackToSinger");
+      console.log("[singerDetailPage] 点击返回按钮，触发从歌手详情页返回歌手列表页事件");
+      this.$emit("onBackToSingerList");
     },
     
     // 跳转到歌曲详情页
