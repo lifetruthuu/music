@@ -50,6 +50,9 @@
 </template>
 
 <script>
+import BehaviorService from '@/services/BehaviorService';
+import { mapState } from 'vuex'; // 导入Vuex状态映射
+
 export default {
   name: 'AudioPlayer',
   
@@ -78,11 +81,21 @@ export default {
       duration: 0,
       currentTime: 0,
       mouseY: 0,
-      windowHeight: window.innerHeight
+      windowHeight: window.innerHeight,
+      startPlayTime: null
     }
   },
 
   computed: {
+    ...mapState({
+      user: state => state.user // 从Vuex获取用户信息
+    }),
+    
+    // 从Vuex中获取userId
+    userId() {
+      return this.user ? this.user.id : null;
+    },
+    
     audioPath() {
       return this.currentSong?.audioPath ? `http://localhost:8000${this.currentSong.audioPath}` : '';
     },
@@ -121,16 +134,58 @@ export default {
     handlePlay(event) {
       this.isPlaying = true;
       this.$emit('play', event);
+      
+      this.startPlayTime = new Date();
+      
+      if (this.currentSong) {
+        BehaviorService.recordPlay(this.currentSong, this.userId, 'play');
+        BehaviorService.recordBehavior({
+          user_id: this.userId,
+          music_id: this.currentSong.id,
+          action_type: 'play',
+          position_in_playlist: this.currentIndex
+        });
+      }
     },
 
     handlePause() {
       this.isPlaying = false;
       this.$emit('pause');
+      
+      if (this.currentSong && this.startPlayTime) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        const completionRate = this.duration > 0 ? duration / this.duration : 0;
+        
+        BehaviorService.recordPlay(this.currentSong, this.userId, 'pause', duration, completionRate);
+        BehaviorService.recordBehavior({
+          user_id: this.userId,
+          music_id: this.currentSong.id,
+          action_type: 'pause',
+          play_duration: duration,
+          play_completion_rate: completionRate
+        });
+      }
     },
 
     handleAudioEnded() {
       this.isPlaying = false;
       this.$emit('ended');
+      
+      if (this.currentSong && this.startPlayTime) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        const completionRate = 1.0;
+        
+        BehaviorService.recordPlay(this.currentSong, this.userId, 'complete', duration, completionRate);
+        BehaviorService.recordBehavior({
+          user_id: this.userId,
+          music_id: this.currentSong.id,
+          action_type: 'complete',
+          play_duration: duration,
+          play_completion_rate: completionRate
+        });
+        
+        this.startPlayTime = null;
+      }
     },
 
     handleLoadedMetadata() {
@@ -142,27 +197,55 @@ export default {
 
     previousMusic() {
       if (this.hasPrevious) {
+        if (this.currentSong && this.startPlayTime) {
+          const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+          const completionRate = this.duration > 0 ? duration / this.duration : 0;
+          
+          BehaviorService.recordPlay(this.currentSong, this.userId, 'skip', duration, completionRate);
+          BehaviorService.recordBehavior({
+            user_id: this.userId,
+            music_id: this.currentSong.id,
+            action_type: 'skip_previous',
+            play_duration: duration,
+            play_completion_rate: completionRate
+          });
+          
+          this.startPlayTime = null;
+        }
         this.$emit('change-song', this.currentIndex - 1);
       }
     },
 
     nextMusic() {
       if (this.hasNext) {
+        if (this.currentSong && this.startPlayTime) {
+          const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+          const completionRate = this.duration > 0 ? duration / this.duration : 0;
+          
+          BehaviorService.recordPlay(this.currentSong, this.userId, 'skip', duration, completionRate);
+          BehaviorService.recordBehavior({
+            user_id: this.userId,
+            music_id: this.currentSong.id,
+            action_type: 'skip_next',
+            play_duration: duration,
+            play_completion_rate: completionRate
+          });
+          
+          this.startPlayTime = null;
+        }
         this.$emit('change-song', this.currentIndex + 1);
       }
     },
 
     handleMouseMove(event) {
       this.mouseY = event.clientY;
-      // 当鼠标位置在窗口底部100px范围内时显示播放器
-      this.$emit('update:show', (this.windowHeight - this.mouseY) < 100);
+      this.$emit('update:show', (this.windowHeight - this.mouseY) < 80);
     },
 
     handleResize() {
       this.windowHeight = window.innerHeight;
     },
 
-    // 提供给父组件的播放控制方法
     play() {
       const audio = this.$refs.audioPlayer;
       if (audio) {

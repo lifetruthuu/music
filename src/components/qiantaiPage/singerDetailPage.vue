@@ -94,8 +94,9 @@
       <div class="music-list">
         <!-- 表头 -->
         <div class="header">
-          <span class="song-title">歌曲</span>
-          <span class="play-count">播放</span>
+          <span class="song-name">歌曲标题</span>
+          <span class="song-duration">时长</span>
+          <span class="song-type">类型</span>
           <span class="favorite">收藏</span>
         </div>
 
@@ -115,17 +116,23 @@
             </span>
           </div>
 
-          <div class="play-count">
-            <audio controls class="audio-player" @play="handlePlay">
-              <source :src="getFullAudioPath(song.audioPath)" type="audio/ogg">
-            </audio>
+          <div class="song-duration">
+            {{ formatTime(song.time) }}
+          </div>
+          
+          <div class="song-type">
+            <span v-if="song.types && song.types.length > 0">{{ song.typeName }}</span>
+            <span v-else>-</span>
           </div>
           
           <div class="favorite-container">
             <i
-                :class="song.favorited ? 'el-icon-star-on red' : 'el-icon-star-off'"
+                :class="[
+                  song.favorited == '1' ? 'el-icon-star-on red' : 'el-icon-star-off',
+                  'favorite-icon',
+                  { 'animate-favorite': song.isAnimating }
+                ]"
                 @click="onFavority(song)"
-                class="favorite-icon"
             ></i>
           </div>
         </div>
@@ -212,7 +219,7 @@ export default {
     goToSongDetail(song) {
       // 通过事件机制触发跳转
       console.log("[singerDetailPage] 触发歌曲详情跳转事件，歌曲ID:", song.id);
-      this.$emit("onGoToSongDetailFromSinger", song.id);
+      this.$emit("onGoToSongDetailFromSinger", song.id, this.user.id);
     },
     
     formatNumber(num) {
@@ -239,15 +246,55 @@ export default {
     },
     
     onFavority(song) {
-      let url = song.favorited ? '/api/music/deleteFavorites/' : '/api/music/favorites/'
+      // 设置动画标志
+      this.$set(song, 'isAnimating', true);
+      
+      // 如果是要添加收藏，则添加波纹效果
+      if (song.favorited != '1') {
+        const container = event.target.closest('.favorite-container');
+        if (container) {
+          container.classList.add('show-ripple');
+          setTimeout(() => {
+            container.classList.remove('show-ripple');
+          }, 800);
+        }
+      }
+      
+      let url = song.favorited == '1' ? '/api/music/deleteFavorites/' : '/api/music/favorites/';
       api.post(url, {
         musicId: song.id,
         userId: this.user.id,
       }).then(res => {
-        song.favorited = !song.favorited;
-        this.$emit("收藏成功")
+        song.favorited = song.favorited == '1' ? 0 : 1;
+        
+        // 显示收藏操作提示信息
+        this.$message({
+          message: song.favorited == 1 ? '♥ 已添加到我的收藏！' : '已从收藏中移除',
+          type: song.favorited == 1 ? 'success' : 'info',
+          duration: 2000,
+          showClose: true,
+          offset: 80
+        });
+        
+        this.$emit("收藏成功");
+        
+        // 动画结束后移除动画类
+        setTimeout(() => {
+          song.isAnimating = false;
+        }, 500);
+        
+        // 重新加载数据以保持状态一致
+        this.initData();
       }).catch(err => {
         console.error('请求失败:', err);
+        song.isAnimating = false;
+        
+        // 显示失败提示
+        this.$message({
+          message: '操作失败，请稍后再试',
+          type: 'error',
+          duration: 2000
+        });
       });
     },
     
@@ -286,7 +333,19 @@ export default {
         this.songs = [];
         this.page.total = 0;
       });
-    }
+    },
+    
+    // 格式化时间显示
+    formatTime(time) {
+        if (!time) return '00:00';
+        
+        // 处理时间格式，如03:46.23格式化为03:46
+        let formattedTime = time;
+        if (time.includes('.')) {
+            formattedTime = time.split('.')[0];
+        }
+        return formattedTime;
+    },
   }
 }
 </script>
@@ -561,7 +620,7 @@ export default {
 /* 表头样式 */
 .header {
   display: grid;
-  grid-template-columns: 4fr 3fr 1fr;
+  grid-template-columns: 4fr 1fr 1fr 1fr;
   padding: 16px 30px;
   background: #f8f9fa;
   font-weight: 600;
@@ -573,7 +632,7 @@ export default {
 /* 歌曲项布局 */
 .song-item {
   display: grid;
-  grid-template-columns: 4fr 3fr 1fr;
+  grid-template-columns: 4fr 1fr 1fr 1fr;
   align-items: center;
   padding: 20px 30px;
   transition: all 0.3s ease;
@@ -656,26 +715,27 @@ export default {
   text-overflow: ellipsis;
 }
 
-/* 播放器样式 */
-.audio-player {
-  width: 200px;
-  height: 40px;
-  border-radius: 20px;
-  outline: none;
+/* 时长和标题样式 */
+.song-duration, .song-type {
+  text-align: center;
+  font-size: 14px;
+  color: #606266;
 }
 
-.audio-player::-webkit-media-controls-panel {
-  background: #f5f7fa;
-}
-
-.audio-player::-webkit-media-controls-play-button {
-  filter: brightness(0.8);
+.song-type span {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: #ecf5ff;
+  color: #409eff;
+  border-radius: 12px;
+  font-size: 12px;
 }
 
 /* 收藏图标样式 */
 .favorite-container {
   display: flex;
   justify-content: center;
+  position: relative;
 }
 
 .favorite-icon {
@@ -683,14 +743,101 @@ export default {
   transition: all 0.3s ease;
   font-size: 22px;
   color: #ccc;
+  position: relative;
+  z-index: 1;
 }
 
 .favorite-icon:hover {
   transform: scale(1.2);
+  color: #ff4757;
 }
 
 .favorite-icon.red {
   color: #ff4757;
+}
+
+/* 添加收藏动画效果 - 更丰富的动画 */
+/* 收藏成功的动画 */
+.animate-favorite.el-icon-star-on {
+  animation: favorite-added-animation 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 取消收藏的动画 */
+.animate-favorite.el-icon-star-off {
+  animation: favorite-removed-animation 0.8s ease;
+}
+
+/* 收藏按钮背后的波纹效果 */
+.favorite-container::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 71, 87, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* 点击收藏时添加波纹效果 */
+.favorite-container.show-ripple::before {
+  animation: ripple-effect 0.8s ease-out;
+}
+
+/* 收藏成功动画 */
+@keyframes favorite-added-animation {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.4) rotate(-15deg);
+    color: #ff4757;
+  }
+  50% {
+    transform: scale(0.8) rotate(15deg);
+  }
+  75% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 取消收藏动画 */
+@keyframes favorite-removed-animation {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.1) rotate(10deg);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 波纹扩散效果 */
+@keyframes ripple-effect {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    width: 70px;
+    height: 70px;
+    opacity: 0;
+  }
 }
 
 /* 动画效果 */
@@ -744,15 +891,6 @@ export default {
   
   .song-info {
     margin-bottom: 15px;
-  }
-  
-  .audio-player {
-    width: 100%;
-    margin: 10px 0;
-  }
-  
-  .favorite-container {
-    margin-top: 10px;
   }
   
   .singer-header {

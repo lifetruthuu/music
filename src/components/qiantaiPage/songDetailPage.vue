@@ -116,12 +116,18 @@
 
 <script>
 import api from "@/api/axios";
+import BehaviorService from "@/services/BehaviorService";
+
 export default {
   name: 'SongDetailPage',
   props: {
     id: {
       type: [String, Number],
       required: true
+    },
+    userId: {
+      type: [String, Number],
+      default: null
     },
     fromGedan: {
       type: Boolean,
@@ -156,7 +162,8 @@ export default {
       progressPercentage: 0,
       parsedLyrics: [],
       currentLyricIndex: -1,
-      user: ""
+      user: "",
+      startPlayTime: null // 添加播放开始时间记录
     }
   },
   computed: {
@@ -176,6 +183,40 @@ export default {
         }
       }
     },
+    userId: {
+      immediate: true,
+      handler(newUserId) {
+        console.log("[songDetailPage] userId prop变化:", newUserId);
+        if (newUserId) {
+          const userString = localStorage.getItem('user');
+          let parsedUser = null;
+          
+          // 解析localStorage中的用户数据
+          if (userString) {
+            try {
+              parsedUser = JSON.parse(userString);
+              // 用传入的userId覆盖其id属性
+              parsedUser.id = newUserId;
+              this.user = parsedUser;
+            } catch (e) {
+              console.error("解析localStorage中的用户数据失败", e);
+              // 如果解析失败，至少保证有id
+              this.user = { id: newUserId };
+            }
+          } else {
+            // 如果没有localStorage数据，使用简单对象
+            this.user = { id: newUserId };
+          }
+          
+          console.log("[songDetailPage] 更新用户对象:", this.user);
+          
+          // 如果已经加载了歌曲，可能需要重新获取详情以更新喜欢状态等
+          if (this.song && this.song.id) {
+            this.fetchSongDetail(this.song.id);
+          }
+        }
+      }
+    },
     currentTime(newTime) {
       // 更新当前播放的歌词位置
       const index = this.parsedLyrics.findIndex((item, i, arr) => {
@@ -191,16 +232,66 @@ export default {
     }
   },
   created() {
+    console.log("[songDetailPage] created钩子执行, props userId:", this.userId);
+    
     const userString = localStorage.getItem('user');
-    this.user = JSON.parse(userString);
+    let parsedUser = null;
+    
+    // 解析localStorage中的用户数据
+    if (userString) {
+      try {
+        parsedUser = JSON.parse(userString);
+        console.log("[songDetailPage] 从localStorage解析到用户:", parsedUser.id);
+      } catch (e) {
+        console.error("[songDetailPage] 解析localStorage中的用户数据失败", e);
+      }
+    } else {
+      console.warn("[songDetailPage] localStorage中没有user数据");
+    }
+    
+    // 优先使用props中传入的userId，但保留完整的用户对象属性
+    if (this.userId) {
+      console.log("[songDetailPage] 使用props传入的userId:", this.userId);
+      // 如果有parsedUser，用传入的userId覆盖其id属性
+      if (parsedUser) {
+        parsedUser.id = this.userId;
+        this.user = parsedUser;
+      } else {
+        // 如果没有完整的用户对象，至少确保有id
+        this.user = { id: this.userId };
+      }
+    } else if (parsedUser) {
+      // 如果没有传入userId但有localStorage数据，使用localStorage数据
+      console.log("[songDetailPage] 没有props userId，使用localStorage中的用户ID:", parsedUser.id);
+      this.user = parsedUser;
+    } else {
+      // 兜底：创建一个默认用户对象，避免undefined错误
+      console.error("[songDetailPage] 无法获取用户信息，使用默认值");
+      this.user = { id: 1 }; // 使用默认ID
+    }
+    
+    console.log("[songDetailPage] 初始化完成，用户对象:", this.user);
     console.log("[songDetailPage] 初始化，来源: ", this.fromGedan ? "歌单" : this.fromSinger ? "歌手详情" : this.fromMyMusic ? "我的音乐" : "其他");
+    console.log("[songDetailPage] 用户ID: ", this.user.id);
   },
   methods: {
     // 获取歌曲详情
     async fetchSongDetail(id) {
       try {
-        console.log("aaa", this.user.id);
+        // 确保在发送请求前有user对象和用户ID
+        if (!this.user || !this.user.id) {
+          console.warn("[songDetailPage] fetchSongDetail时用户ID不存在，尝试从props获取");
+          if (this.userId) {
+            this.user = { id: this.userId };
+          } else {
+            console.error("[songDetailPage] 无法获取用户ID，请求可能会失败");
+          }
+        }
+        
+        console.log("[songDetailPage] 请求歌曲详情，歌曲ID:", id, "用户ID:", this.user.id);
         const response = await api.post('/api/music/detail/', { musicId: id, userId: this.user.id });
+        console.log("[songDetailPage] 歌曲详情响应:", response);
+        
         if (response.data) {
           this.song = {
             id: response.data.id,
@@ -217,7 +308,7 @@ export default {
           this.parseLyrics();
         }
       } catch (error) {
-        console.error('获取歌曲详情失败', error);
+        console.error('[songDetailPage] 获取歌曲详情失败', error);
         this.$message.error('加载歌曲信息失败，请重试');
       }
     },
@@ -273,10 +364,32 @@ export default {
       const audio = this.$refs.audioPlayer;
       if (this.isPlaying) {
         audio.pause();
+        // 记录暂停行为
+        if (this.startPlayTime) {
+          const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+          const completionRate = this.duration ? duration / this.duration : 0;
+          BehaviorService.recordPlay(this.song, this.user.id, 'pause', duration, completionRate);
+          BehaviorService.recordBehavior({
+            userId: this.user.id,
+            musicId: this.song.id,
+            action_type: 'pause',
+            play_duration: duration,
+            play_completion_rate: completionRate
+          });
+        }
       } else {
         audio.play().catch(error => {
           console.error('播放失败', error);
           this.$message.error('播放失败，请检查网络连接');
+        });
+        // 记录播放开始时间
+        this.startPlayTime = new Date();
+        // 记录播放行为
+        BehaviorService.recordPlay(this.song, this.user.id, 'play');
+        BehaviorService.recordBehavior({
+          userId: this.user.id,
+          musicId: this.song.id,
+          action_type: 'play'
         });
       }
       this.isPlaying = !this.isPlaying;
@@ -292,6 +405,13 @@ export default {
         });
         
         if (response.status === 'success') {
+          // 记录喜欢/不喜欢行为
+          BehaviorService.recordBehavior({
+            userId: this.user.id,
+            musicId: this.song.id,
+            action_type: this.isLiked ? 'unfavorite' : 'favorite'
+          });
+          
           this.isLiked = !this.isLiked;
           this.$message({
             type: 'success',
@@ -316,6 +436,20 @@ export default {
     },
     
     onEnded() {
+      // 记录播放完成行为
+      if (this.startPlayTime) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        BehaviorService.recordPlay(this.song, this.user.id, 'complete', duration, 1.0);
+        BehaviorService.recordBehavior({
+          userId: this.user.id,
+          musicId: this.song.id,
+          action_type: 'complete',
+          play_duration: duration,
+          play_completion_rate: 1.0
+        });
+        this.startPlayTime = null;
+      }
+      
       this.isPlaying = false;
       this.nextSong();
     },
@@ -326,6 +460,14 @@ export default {
       const newTime = (value / 100) * this.duration;
       audio.currentTime = newTime;
       this.currentTime = newTime;
+      
+      // 记录跳转行为
+      BehaviorService.recordBehavior({
+        userId: this.user.id,
+        musicId: this.song.id,
+        action_type: 'seek',
+        position: value / 100 // 记录跳转到的位置百分比
+      });
     },
     
     formatTime(seconds) {
@@ -384,11 +526,43 @@ export default {
     
     // 上一首/下一首
     prevSong() {
+      // 记录跳过行为
+      if (this.startPlayTime) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        const completionRate = this.duration ? duration / this.duration : 0;
+        BehaviorService.recordPlay(this.song, this.user.id, 'skip', duration, completionRate);
+        BehaviorService.recordBehavior({
+          userId: this.user.id,
+          musicId: this.song.id,
+          action_type: 'skip',
+          play_duration: duration,
+          play_completion_rate: completionRate,
+          skip_direction: 'previous'
+        });
+        this.startPlayTime = null;
+      }
+      
       // 这里应实现切换到上一首歌曲的逻辑
       this.$message.info('切换到上一首');
     },
     
     nextSong() {
+      // 记录跳过行为
+      if (this.startPlayTime) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        const completionRate = this.duration ? duration / this.duration : 0;
+        BehaviorService.recordPlay(this.song, this.user.id, 'skip', duration, completionRate);
+        BehaviorService.recordBehavior({
+          userId: this.user.id,
+          musicId: this.song.id,
+          action_type: 'skip',
+          play_duration: duration,
+          play_completion_rate: completionRate,
+          skip_direction: 'next'
+        });
+        this.startPlayTime = null;
+      }
+      
       // 这里应实现切换到下一首歌曲的逻辑
       this.$message.info('切换到下一首');
     },
@@ -404,8 +578,20 @@ export default {
     }
   },
   beforeDestroy() {
-    // 组件销毁前停止播放
+    // 组件销毁前停止播放并记录
     if (this.$refs.audioPlayer) {
+      if (this.isPlaying && this.startPlayTime) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        const completionRate = this.duration ? duration / this.duration : 0;
+        BehaviorService.recordPlay(this.song, this.user.id, 'interrupt', duration, completionRate);
+        BehaviorService.recordBehavior({
+          userId: this.user.id,
+          musicId: this.song.id,
+          action_type: 'interrupt',
+          play_duration: duration,
+          play_completion_rate: completionRate
+        });
+      }
       this.$refs.audioPlayer.pause();
     }
   }

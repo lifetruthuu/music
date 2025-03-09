@@ -7,11 +7,10 @@
     center>
     <div class="container">
       <h1 class="header">选择您喜欢的音乐标签</h1>
-      <p class="selection-hint">请至少选择3个标签，帮助我们为您推荐最佳内容</p>
+      <p class="selection-hint">请选择3-8个标签，帮助我们为您推荐最佳内容</p>
 
       <!-- 加载状态 -->
-      <div v-if="loading" class="loading-container">
-        <el-loading background="rgba(255, 255, 255, 0.7)" element-loading-text="加载中..."></el-loading>
+      <div v-if="loading" class="loading-container" v-loading="loading" element-loading-text="加载中..." element-loading-background="rgba(255, 255, 255, 0.7)">
       </div>
 
       <!-- 错误提示 -->
@@ -29,8 +28,8 @@
             <div
               class="tag-item"
               :class="{ 
-                selected: selectedTags.includes(tag),
-                disabled: selectedTags.length >= 3 && !selectedTags.includes(tag)
+                selected: isTagSelected(tag),
+                disabled: selectedTags.length >= 8 && !isTagSelected(tag)
               }"
               v-for="tag in category.tags"
               :key="tag.id"
@@ -38,6 +37,34 @@
             >
               {{ tag.name }}
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 已选择标签及权重设置 -->
+      <div v-if="selectedTags.length > 0" class="selected-tags-container">
+        <h3 class="selected-section-title">已选择的标签 ({{ selectedTags.length }}/8)</h3>
+        <div class="selected-tags-list">
+          <div class="selected-tag-item" v-for="(tag, index) in selectedTags" :key="tag.id">
+            <div class="tag-name">{{ tag.name }}</div>
+            <div class="weight-control">
+              <span class="weight-label">权重:</span>
+              <el-rate
+                v-model="tag.weight"
+                :max="5"
+                :texts="['1', '2', '3', '4', '5']"
+                show-text
+                @change="updateTagWeight(index, $event)"
+              ></el-rate>
+            </div>
+            <el-button 
+              type="danger" 
+              icon="el-icon-close" 
+              size="mini" 
+              circle 
+              class="remove-tag-btn"
+              @click="removeTag(index)"
+            ></el-button>
           </div>
         </div>
       </div>
@@ -50,7 +77,7 @@
           class="confirm-btn" 
           @click="onSave()"
           :loading="saving"
-          :disabled="selectedTags.length < 3 || saving">
+          :disabled="selectedTags.length < 3 || selectedTags.length > 8 || saving">
           {{ saving ? '保存中...' : '确认选择' }}
         </el-button>
       </div>
@@ -99,13 +126,36 @@ export default {
         this.dialogWidth = '600px';
       }
     },
+    isTagSelected(tag) {
+      return this.selectedTags.some(item => item.id === tag.id);
+    },
     toggleTag(tag) {
-      const index = this.selectedTags.indexOf(tag)
-      if (index > -1) {
-        this.selectedTags.splice(index, 1)
-      } else {
-        this.selectedTags.push(tag)
+      // 如果已经选择了8个标签并且当前标签不在选中列表中，则不允许添加
+      if (this.selectedTags.length >= 8 && !this.isTagSelected(tag)) {
+        this.$message.warning('最多只能选择8个标签');
+        return;
       }
+      
+      const index = this.selectedTags.findIndex(item => item.id === tag.id);
+      if (index > -1) {
+        // 移除标签
+        this.selectedTags.splice(index, 1);
+      } else {
+        // 添加标签，默认权重为3
+        this.selectedTags.push({
+          ...tag,
+          weight: 3
+        });
+      }
+    },
+    removeTag(index) {
+      this.selectedTags.splice(index, 1);
+    },
+    updateTagWeight(index, value) {
+      // 确保权重在1-5之间
+      if (value < 1) value = 1;
+      if (value > 5) value = 5;
+      this.selectedTags[index].weight = value;
     },
     // 获取所有数据
     fetchData() {
@@ -189,6 +239,11 @@ export default {
         return;
       }
       
+      if (this.selectedTags.length > 8) {
+        this.$message.warning('最多只能选择8个标签');
+        return;
+      }
+      
       const userString = localStorage.getItem('user');
       if (!userString) {
         this.$message.error('用户信息获取失败，请重新登录');
@@ -198,9 +253,15 @@ export default {
       this.user = JSON.parse(userString);
       this.saving = true;
 
+      // 准备发送的数据，包括标签ID和权重
+      const titleData = this.selectedTags.map(tag => ({
+        id: tag.id,
+        weight: tag.weight || 3
+      }));
+
       api.post('/api/user/title/', {
         userId: this.user.id,
-        titleIds: this.selectedTags.map(tag=>tag.id),
+        titleData: titleData
       }).then(res => {
         this.saving = false;
         this.$message.success('标签选择成功');
@@ -254,16 +315,12 @@ export default {
 
 /* 加载状态和错误提示 */
 .loading-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  min-height: 200px;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 200px;
-  z-index: 10;
+  width: 100%;
+  position: relative;
 }
 
 .error-message {
@@ -287,6 +344,7 @@ export default {
 
 .category-container {
   animation: fadeIn 0.5s ease-out;
+  margin-bottom: 1.5em;
 }
 
 .category-group {
@@ -352,6 +410,60 @@ export default {
   transform: none;
 }
 
+/* 已选择标签区域 */
+.selected-tags-container {
+  margin: 1.5em 0;
+  padding: 1em;
+  background: #f9f9f9;
+  border-radius: 12px;
+  border: 1px solid #eee;
+}
+
+.selected-section-title {
+  font-size: 1.1rem;
+  color: #333;
+  margin-bottom: 1em;
+  font-weight: 500;
+}
+
+.selected-tags-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.selected-tag-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8em;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.05);
+}
+
+.tag-name {
+  font-weight: 500;
+  color: #333;
+  flex: 0 0 20%;
+}
+
+.weight-control {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  margin: 0 10px;
+}
+
+.weight-label {
+  margin-right: 10px;
+  color: #666;
+}
+
+.remove-tag-btn {
+  flex: 0 0 auto;
+}
+
 /* 对话框底部 */
 .dialog-footer {
   display: flex;
@@ -409,6 +521,25 @@ export default {
   
   .category-group {
     padding: 0.8em;
+  }
+  
+  .selected-tag-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .tag-name {
+    flex: 0 0 100%;
+  }
+  
+  .weight-control {
+    flex: 0 0 100%;
+    margin: 0;
+  }
+  
+  .remove-tag-btn {
+    align-self: flex-end;
   }
 }
 

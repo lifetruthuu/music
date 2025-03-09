@@ -1,7 +1,7 @@
 <template>
   <header class="header">
     <div class="nav-buttons">
-      <el-button type="text" v-for="menu in menus"  :key="menu.id" @click="onChange(menu)">
+      <el-button type="text" v-for="menu in menus" :key="menu.id" @click="onChange(menu)">
         {{menu.name}}
       </el-button>
 
@@ -22,37 +22,97 @@
 
     <div class="right-section">
       <el-button type="text" @click="onTuichu">退出</el-button>
-      <el-button v-if="username && username == 'admin'" type="text" @click="onHoutai()">后台管理</el-button>
+      <el-button v-if="checkIsAdmin()" type="text" @click="onHoutai()">后台管理</el-button>
     </div>
   </header>
 </template>
 
 <script>
+import { mapState } from 'vuex'; // 导入Vuex辅助函数
+import store from '@/store'; // 直接导入store实例
+
 export default {
-  data(){
-    return{
-      progress: 0,
-      searchKey: null,
-      username:null,
-      tableData:[],
-      currentAudioPath: '',
-      volume: 1, // 默认音量为最大（1）
-      isMuted: false, // 是否静音
-      currentAudioName: '', // 当前播放的音频名称
-      currentAudioSinger: '', // 当前播放的音频歌手
-      isFavorited: false, // 是否已收藏
-      currentMusicPath: '',
+  name: 'top-header',
+  data() {
+    return {
+      logoUrl: require('@/assets/logo.png'),
+      activeIndex: 0,
+      searchKey: '',
+      isRotated: false,
+      username: '',
+      isLogedIn: false,
+      userId:'',
       currentMusicId: '',
-      menus:[{index:0,name:'首页'},{index:1,name:'歌单'},{index:2,name:'歌手'},{index:3,name:'我的音乐'},{index:4,name:'歌曲推荐'}]
+      menus:[{index:0,name:'首页'},{index:1,name:'歌单'},{index:2,name:'歌手'},{index:3,name:'我的音乐'},{index:4,name:'歌曲推荐'}],
+      isAdmin: false
     }
   },
 
-  created() {
-    const userString = localStorage.getItem('user');
-    const user = JSON.parse(userString);
-    this.username = user.username;
+  computed: {
+    ...mapState({
+      user: state => state.user // 从Vuex获取用户信息
+    })
   },
+
+  created() {
+    // 从localStorage获取用户信息，检查是否管理员
+    const userString = localStorage.getItem('user');
+    if (userString) {
+      try {
+        const userObj = JSON.parse(userString);
+        this.isAdmin = userObj && userObj.id === '1';
+      } catch (e) {
+        console.error('解析localStorage中的用户信息失败:', e);
+      }
+    }
+    
+    // 从Vuex获取用户信息
+    if (this.user && this.user.username) {
+      this.username = this.user.username;
+      this.isLogedIn = true;
+      this.userId = this.user.id;
+      // 同时通过Vuex也检查一次管理员权限
+      this.isAdmin = this.isAdmin || (this.user.id === '1');
+    }
+  },
+  
+  // 监听Vuex中user的变化
+  watch: {
+    user: {
+      handler(newUser) {
+        if (newUser && newUser.username) {
+          this.username = newUser.username;
+          this.isLogedIn = true;
+          this.userId = newUser.id;
+          // 同时更新管理员状态
+          this.isAdmin = this.isAdmin || (newUser.id === '1');
+        } else {
+          this.username = '';
+          this.isLogedIn = false;
+          this.userId = '';
+          this.isAdmin = false;
+        }
+      },
+      deep: true,
+      immediate: true
+    }
+  },
+  
   methods:{
+    checkIsAdmin() {
+      // 直接从localStorage读取用户信息
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          return user && user.id === '1';
+        }
+      } catch (e) {
+        console.error('解析用户信息失败:', e);
+      }
+      return false;
+    },
+    
     handleSearch(){
       this.$emit("oChangeSearchMenu",{index:1,name:'歌单',queryStr:this.searchKey})
     },
@@ -64,8 +124,12 @@ export default {
     },
 
     onTuichu(){
-      localStorage.clear();
-      this.$router.push('/login'); // 跳转到首页
+      // 使用直接导入的store实例
+      store.dispatch('logout');
+      // 清除管理员状态
+      this.isAdmin = false;
+      // 跳转到登录页
+      this.$router.push('/login');
     }
   }
 }

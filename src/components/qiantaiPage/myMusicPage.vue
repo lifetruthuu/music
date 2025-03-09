@@ -20,6 +20,52 @@
               <span class="stat-value">{{ totalFavorites }}</span>
               <span class="stat-label">收藏</span>
             </div>
+            
+            <!-- 用户心情选择组件 -->
+            <div class="mood-selector" @click.stop :class="{ 'active': showMoodSelector }">
+              <div class="current-mood" @click="toggleMoodSelector">
+                <i :class="getMoodIcon(currentMood)"></i>
+                <span class="mood-text">{{ getMoodLabel(currentMood) }}</span>
+                <i class="el-icon-arrow-down mood-arrow"></i>
+              </div>
+              <transition name="fade">
+                <div class="mood-dropdown" v-if="showMoodSelector">
+                  <div 
+                    v-for="mood in moodOptions" 
+                    :key="mood.value" 
+                    class="mood-option"
+                    @click="updateMood(mood.value)"
+                    :class="{ 'active': currentMood === mood.value }"
+                  >
+                    <i :class="mood.icon"></i>
+                    <span>{{ mood.label }}</span>
+                  </div>
+                </div>
+              </transition>
+            </div>
+            
+            <!-- 用户活动选择组件 -->
+            <div class="activity-selector" @click.stop :class="{ 'active': showActivitySelector }">
+              <div class="current-activity" @click="toggleActivitySelector">
+                <i :class="getActivityIcon(currentActivity)"></i>
+                <span class="activity-text">{{ getActivityLabel(currentActivity) }}</span>
+                <i class="el-icon-arrow-down activity-arrow"></i>
+              </div>
+              <transition name="fade">
+                <div class="activity-dropdown" v-if="showActivitySelector">
+                  <div 
+                    v-for="activity in activityOptions" 
+                    :key="activity.value" 
+                    class="activity-option"
+                    @click="updateActivity(activity.value)"
+                    :class="{ 'active': currentActivity === activity.value }"
+                  >
+                    <i :class="activity.icon"></i>
+                    <span>{{ activity.label }}</span>
+                  </div>
+                </div>
+              </transition>
+            </div>
           </div>
         </div>
         <el-button 
@@ -101,12 +147,22 @@
       </div>
 
       <!-- 歌曲列表 -->
-      <transition-group name="song-list" tag="div" class="songs-container">
+      <transition-group 
+        name="song-list" 
+        tag="div" 
+        class="songs-container"
+        @before-leave="beforeItemLeave"
+        @after-leave="afterItemLeave"
+      >
         <div 
           class="song-item" 
           v-for="(song, index) in songs" 
-          :key="song.id"
-          :class="{ 'even-row': index % 2 === 1, 'playing': currentSong?.id === song.id }"
+          :key="song.id || index"
+          :class="{ 
+            'even-row': index % 2 === 1, 
+            'playing': currentSong?.id === song.id
+          }"
+          :data-index="index"
         >
           <div class="song-info" @click="goToSongDetail(song)">
             <span class="order">{{ index + 1 }}</span>
@@ -272,6 +328,8 @@
 import api from "@/api/axios";
 import AudioPlayer from '@/components/com/AudioPlayer.vue';
 import Pagination from '@/components/com/Pagination.vue';
+import { mapState } from 'vuex'; // 只导入mapState
+import store from '@/store/index'; // 修正为正确的路径
 
 export default {
   components: {
@@ -302,7 +360,6 @@ export default {
     
     return {
       songs: [],
-      user: {},
       totalFavorites: 0,
       totalSongs: 0,
       pageNum: 1,
@@ -344,37 +401,155 @@ export default {
         bio: [
           { max: 500, message: '个人简介不能超过500个字符', trigger: 'blur' }
         ]
-      }
+      },
+      showMoodSelector: false,
+      showActivitySelector: false,
+      moodOptions: [
+        { value: 'none', label: '无心情', icon: 'el-icon-help' },
+        { value: 'calm', label: '平静', icon: 'el-icon-moon' },
+        { value: 'happy', label: '开心', icon: 'el-icon-sunny' },
+        { value: 'sad', label: '悲伤', icon: 'el-icon-umbrella' },
+        { value: 'angry', label: '愤怒', icon: 'el-icon-lightning' },
+        { value: 'surprised', label: '惊讶', icon: 'el-icon-star-off' },
+        { value: 'tired', label: '疲惫', icon: 'el-icon-sunset' }
+      ],
+      activityOptions: [
+        { value: '', label: '无活动', icon: 'el-icon-close' },
+        { value: 'studying', label: '学习中', icon: 'el-icon-reading' },
+        { value: 'working', label: '工作中', icon: 'el-icon-office-building' },
+        { value: 'exercising', label: '锻炼中', icon: 'el-icon-trophy' },
+        { value: 'relaxing', label: '放松中', icon: 'el-icon-coffee-cup' },
+        { value: 'commuting', label: '通勤中', icon: 'el-icon-truck' }
+      ]
     };
+  },
+
+  computed: {
+    ...mapState({
+      user: state => state.user // 从Vuex获取用户信息
+    }),
+    
+    // 用户当前的心情，有默认值
+    currentMood() {
+      // 添加日志以检查计算过程
+      console.log('myMusicPage: 计算currentMood, user.mood =', this.user?.mood);
+      // 确保始终返回有效的心情值
+      return this.user?.mood || 'none';
+    },
+    
+    // 用户当前的活动，有默认值
+    currentActivity() {
+      console.log('myMusicPage: 计算currentActivity, user.activity =', this.user?.activity);
+      return this.user?.activity || '';
+    }
   },
 
   watch: {
     queryStr(newVal) {
       this.searchQuery = newVal;
       this.initData();
+    },
+    // 监听用户对象的变化，特别是mood属性
+    user: {
+      handler(newUser, oldUser) {
+        // 当用户整个对象变化时，检查心情是否变化
+        const newMood = newUser?.mood;
+        const oldMood = oldUser?.mood;
+        
+        if (newMood !== oldMood) {
+          console.log('myMusicPage: 监听到用户心情变化:', oldMood, '->', newMood);
+          // 强制更新UI
+          this.$nextTick(() => this.$forceUpdate());
+        }
+      },
+      deep: true, // 深度监听
+      immediate: true // 立即执行一次
     }
   },
 
   created() {
-    const userString = localStorage.getItem('user');
-    this.user = JSON.parse(userString) || {};
-    this.initData();
+    console.log('myMusicPage: created生命周期钩子执行');
+    
+    // 先获取用户心情和活动，再初始化数据
+    Promise.all([this.getUserMood(), this.getUserActivity()])
+      .then(() => {
+        console.log('myMusicPage: 心情和活动获取完成，准备初始化数据');
+        this.initData();
+      })
+      .catch(err => {
+        console.error('myMusicPage: 获取用户数据失败，使用默认设置初始化数据:', err);
+        this.initData();
+      });
   },
 
   mounted() {
     window.addEventListener('mousemove', this.handleMouseMove);
     window.addEventListener('resize', this.handleResize);
+    window.addEventListener('click', this.handleOutsideClick);
     this.checkViewportWidth();
     window.addEventListener('resize', this.checkViewportWidth);
+    
+    // 添加页面可见性变化事件监听
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   },
 
   beforeDestroy() {
     window.removeEventListener('mousemove', this.handleMouseMove);
     window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('click', this.handleOutsideClick);
     window.removeEventListener('resize', this.checkViewportWidth);
+    
+    // 移除页面可见性变化事件监听
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   },
 
   methods: {
+    getUserMood() {
+      // 从API获取用户心情
+      if (!this.user || !this.user.id) {
+        return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
+      }
+      
+      // 返回API调用的Promise
+      return api.get('/api/user/get_mood/', {
+        params: {
+          userId: this.user.id
+        }
+      }).then(res => {
+        console.log('myMusicPage: API返回的心情数据:', res);
+        
+        if (res.status === 'success') {
+          // 确保有默认值
+          const mood = res.mood || 'none';
+          console.log('myMusicPage: 准备更新心情为:', mood);
+          
+          // 创建一个新的用户对象，确保不是直接修改引用
+          const updatedUser = JSON.parse(JSON.stringify(this.user));
+          updatedUser.mood = mood;
+          
+          // 更新Vuex状态
+          return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+            console.log('myMusicPage: Vuex状态已更新，当前心情:', mood, '从user对象读取:', this.user.mood);
+            
+            // 强制重新计算和重新渲染
+            this.$nextTick(() => {
+              this.$forceUpdate();
+            });
+            
+            // 确保返回一个已解决的Promise
+            return Promise.resolve();
+          });
+        }
+        
+        // 如果没有成功获取心情，返回一个已解决的Promise
+        return Promise.resolve();
+      }).catch(err => {
+        console.error('myMusicPage: 获取用户心情失败:', err);
+        // 返回一个被拒绝的Promise，以便调用者可以处理错误
+        return Promise.reject(err);
+      });
+    },
+    
     checkViewportWidth() {
       // 根据视口宽度调整Profile的展开状态
       if (window.innerWidth <= 768) {
@@ -458,7 +633,7 @@ export default {
             if (res.status === 'success') {
               this.$message.success('个人信息更新成功');
               
-              // 更新本地用户信息
+              // 更新Vuex中的用户信息
               const updatedUser = {
                 ...this.user,
                 nickname: this.userFormData.nickname,
@@ -473,8 +648,8 @@ export default {
                 updatedUser.avatarUrl = res.avatarUrl;
               }
               
-              localStorage.setItem('user', JSON.stringify(updatedUser));
-              this.user = updatedUser;
+              // 使用直接导入的store实例和新的action
+              store.dispatch('updateUserPreserveAdmin', updatedUser);
               
               this.settingsDialogVisible = false;
               this.avatarPreview = null;
@@ -503,7 +678,9 @@ export default {
     },
     
     goToExplore() {
-      this.$router.push('/music');
+      // 触发事件，通知父组件切换到推荐音乐页面
+      console.log("[myMusicPage] 触发跳转到推荐音乐页面事件");
+      this.$emit("onGoToRecommendFromMyMusic");
     },
     
     confirmUnfavorite(song) {
@@ -517,27 +694,59 @@ export default {
       // 设置动画标志
       this.$set(this.currentSong, 'isAnimating', true);
 
+      // 添加波纹效果
+      const songIndex = this.songs.findIndex(song => song.id === this.currentSong.id);
+      if (songIndex !== -1) {
+        this.$nextTick(() => {
+          const songItems = document.querySelectorAll('.song-item');
+          if (songItems && songItems[songIndex]) {
+            const actionContainer = songItems[songIndex].querySelector('.song-actions');
+            if (actionContainer) {
+              actionContainer.classList.add('show-ripple');
+              setTimeout(() => {
+                actionContainer.classList.remove('show-ripple');
+              }, 800);
+            }
+          }
+        });
+      }
+
       api.post('/api/music/deleteFavorites/', {
         musicId: this.currentSong.id,
         userId: this.user.id,
       }).then(res => {
+        this.totalFavorites--;
         this.$message({
           type: 'success',
-          message: '已取消收藏'
+          message: '已取消收藏',
+          duration: 1500
         });
         
-        // 动画结束后移除歌曲
-        setTimeout(() => {
-          this.initData();
-        }, 500);
-        
+        // 关闭对话框
         this.unfavoriteDialogVisible = false;
+        
+        // 标记要删除的歌曲ID
+        const songIdToRemove = this.currentSong.id;
+        
+        // 使用setTimeout确保动画有更好的视觉效果
+        setTimeout(() => {
+          // 使用Vue的响应式系统更新数据，触发transition-group的动画
+          this.songs = this.songs.filter(song => song.id !== songIdToRemove);
+          this.totalSongs--;
+          
+          // 如果歌曲列表为空，更新总收藏数
+          if (this.songs.length === 0) {
+            this.totalFavorites = 0;
+          }
+        }, 300);
+        
       }).catch(err => {
         console.error('请求失败:', err);
         this.$message.error('取消收藏失败');
         if (this.currentSong) {
           this.currentSong.isAnimating = false;
         }
+        this.unfavoriteDialogVisible = false;
       });
     },
     
@@ -604,11 +813,28 @@ export default {
         if (res.status === 'success') {
           this.songs = res.list;
           this.totalSongs = res.total;
-          this.user = res.user || this.user;
-          this.totalFavorites = res.total || 0;
           
-          // 更新localStorage中的用户信息
-          localStorage.setItem('user', JSON.stringify(this.user));
+          // 如果API返回了更新的用户信息，使用新的action更新Vuex
+          if (res.user) {
+            // 保存当前的心情信息，确保不会被覆盖
+            const currentMood = this.user?.mood;
+            
+            // 创建新的用户对象，合并服务器返回的数据和当前心情
+            const updatedUser = JSON.parse(JSON.stringify(res.user));
+            
+            // 如果服务器返回的用户对象没有心情字段，或者心情字段为空，则使用本地保存的心情
+            if (!updatedUser.mood && currentMood) {
+              updatedUser.mood = currentMood;
+            }
+            
+            // 使用直接导入的store实例和新的action
+            store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+              // 强制更新UI
+              this.$nextTick(() => this.$forceUpdate());
+            });
+          }
+          
+          this.totalFavorites = res.total || 0;
         } else {
           this.$message.error(res.message || '获取数据失败');
           this.songs = [];
@@ -628,9 +854,6 @@ export default {
         this.$refs.player?.play();
       });
       this.recordPlayHistory(song.id);
-      
-      // 不再触发跳转到歌曲详情页事件
-      // this.$emit('onGoToSongDetailFromMyMusic', song.id);
     },
     
     togglePlay(song, index) {
@@ -655,9 +878,278 @@ export default {
     },
 
     goToSongDetail(song) {
-      // 触发跳转到歌曲详情页事件
-      this.$emit('onGoToSongDetailFromMyMusic', song.id);
-    }
+      // 触发
+      console.log("[myMusicPage] 跳转到歌曲详情，用户ID:", this.user.id);
+      this.$emit('onGoToSongDetailFromMyMusic', song.id, this.user.id);
+    },
+
+    beforeItemLeave(el) {
+      // 获取元素高度和位置信息
+      const rect = el.getBoundingClientRect();
+      
+      // 将元素设置为绝对定位，以不影响其他元素的初始位置
+      el.style.position = 'absolute';
+      el.style.top = rect.top + 'px';
+      el.style.left = rect.left + 'px';
+      el.style.width = rect.width + 'px';
+      el.style.height = rect.height + 'px';
+      el.style.zIndex = '10';
+      
+      // 应用移除动画
+      el.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      el.style.transform = 'translateX(30px)';
+      el.style.opacity = '0';
+    },
+
+    afterItemLeave(el) {
+      // 重置元素样式
+      el.style.position = '';
+      el.style.top = '';
+      el.style.left = '';
+      el.style.width = '';
+      el.style.height = '';
+      el.style.zIndex = '';
+      el.style.transform = '';
+      el.style.opacity = '';
+      el.style.transition = '';
+    },
+
+    toggleMoodSelector() {
+      this.showMoodSelector = !this.showMoodSelector;
+      // 如果打开心情选择器，关闭活动选择器
+      if (this.showMoodSelector) {
+        this.showActivitySelector = false;
+      }
+    },
+
+    toggleActivitySelector() {
+      this.showActivitySelector = !this.showActivitySelector;
+      // 如果打开活动选择器，关闭心情选择器
+      if (this.showActivitySelector) {
+        this.showMoodSelector = false;
+      }
+    },
+
+    updateMood(mood) {
+      
+      // 先更新本地状态
+      const previousMood = this.user.mood;
+      this.showMoodSelector = false;
+      
+      // 创建一个新的用户对象
+      const updatedUser = JSON.parse(JSON.stringify(this.user));
+      updatedUser.mood = mood;
+      
+      // 调用API更新服务器上的数据
+      api.post('/api/user/update_mood/', {
+        userId: this.user.id,
+        mood: mood
+      }).then(res => {
+        if (res.status === 'success') {
+          console.log('myMusicPage: API更新心情成功,新心情:', mood);
+          
+          // 更新Vuex中的用户信息
+          store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+            console.log('myMusicPage: Vuex状态已更新,当前心情:', mood, '从user对象读取:', this.user.mood);
+            
+            // 强制更新视图
+            this.$nextTick(() => {
+              this.$forceUpdate();
+            });
+            
+            this.$message({
+              type: 'success',
+              message: '心情已更新',
+              duration: 1500
+            });
+          });
+        } else {
+          console.error('myMusicPage: API更新心情失败:', res.message);
+          
+          // 如果API请求失败，恢复之前的心情状态
+          const revertUser = JSON.parse(JSON.stringify(this.user));
+          revertUser.mood = previousMood;
+          
+          store.dispatch('updateUserPreserveAdmin', revertUser).then(() => {
+            this.$nextTick(() => this.$forceUpdate());
+          });
+          
+          this.$message.error(res.message || '更新心情失败');
+        }
+      }).catch(err => {
+        console.error('myMusicPage: 更新心情失败:', err);
+        
+        // 如果API请求失败，恢复之前的心情状态
+        const revertUser = JSON.parse(JSON.stringify(this.user));
+        revertUser.mood = previousMood;
+        
+        store.dispatch('updateUserPreserveAdmin', revertUser).then(() => {
+          this.$nextTick(() => this.$forceUpdate());
+        });
+        
+        this.$message.error('更新心情失败');
+      });
+    },
+
+    getMoodIcon(mood) {
+      // 如果没有找到对应的心情，使用默认值"none"的图标
+      const moodObj = this.moodOptions.find(m => m.value === mood) || 
+                     this.moodOptions.find(m => m.value === 'none');
+      return moodObj ? moodObj.icon : 'el-icon-help';
+    },
+
+    getMoodLabel(mood) {
+      const moodObj = this.moodOptions.find(m => m.value === mood) || 
+                     this.moodOptions.find(m => m.value === 'none');
+      return moodObj ? moodObj.label : '无心情';
+    },
+
+    handleOutsideClick(event) {
+      // 如果点击的不是情绪选择器内部元素，则关闭选择器
+      if (this.showMoodSelector && !event.target.closest('.mood-selector')) {
+        this.showMoodSelector = false;
+      }
+      // 如果点击的不是活动选择器内部元素，则关闭选择器
+      if (this.showActivitySelector && !event.target.closest('.activity-selector')) {
+        this.showActivitySelector = false;
+      }
+    },
+
+    // 处理页面可见性变化
+    handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        // 页面变为可见时，重新获取用户心情和活动
+        this.getUserMood();
+        this.getUserActivity();
+      }
+    },
+
+    // 获取用户活动
+    getUserActivity() {
+      // 从API获取用户活动
+      if (!this.user || !this.user.id) {
+        return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
+      }
+      
+      console.log('myMusicPage: 正在获取用户活动...');
+      
+      // 返回API调用的Promise
+      return api.get('/api/user/get_activity/', {
+        params: {
+          userId: this.user.id
+        }
+      }).then(res => {
+        console.log('myMusicPage: API返回的活动数据:', res);
+        
+        if (res.status === 'success') {
+          // 确保有默认值
+          const activity = res.activity || '';
+          console.log('myMusicPage: 准备更新活动为:', activity);
+          
+          // 创建一个新的用户对象，确保不是直接修改引用
+          const updatedUser = JSON.parse(JSON.stringify(this.user));
+          updatedUser.activity = activity;
+          
+          // 更新Vuex状态
+          return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+            console.log('myMusicPage: Vuex状态已更新，当前活动:', activity, '从user对象读取:', this.user.activity);
+            
+            // 强制重新计算和重新渲染
+            this.$nextTick(() => {
+              this.$forceUpdate();
+              console.log('myMusicPage: UI已强制更新');
+            });
+            
+            // 确保返回一个已解决的Promise
+            return Promise.resolve();
+          });
+        }
+        
+        // 如果没有成功获取活动，返回一个已解决的Promise
+        return Promise.resolve();
+      }).catch(err => {
+        console.error('myMusicPage: 获取用户活动失败:', err);
+        // 返回一个被拒绝的Promise，以便调用者可以处理错误
+        return Promise.reject(err);
+      });
+    },
+
+    getActivityIcon(activity) {
+      // 如果没有找到对应的活动，使用默认值"无活动"的图标
+      const activityObj = this.activityOptions.find(a => a.value === activity) || 
+                         this.activityOptions.find(a => a.value === '');
+      return activityObj ? activityObj.icon : 'el-icon-close';
+    },
+
+    getActivityLabel(activity) {
+      // 获取活动的显示标签
+      const activityObj = this.activityOptions.find(a => a.value === activity) || 
+                         this.activityOptions.find(a => a.value === '');
+      return activityObj ? activityObj.label : '无活动';
+    },
+
+    updateActivity(activity) {
+      console.log('myMusicPage: 用户选择了新活动:', activity);
+      
+      // 先更新本地状态
+      const previousActivity = this.user.activity;
+      this.showActivitySelector = false;
+      
+      // 创建一个新的用户对象
+      const updatedUser = JSON.parse(JSON.stringify(this.user));
+      updatedUser.activity = activity;
+      
+      // 调用API更新服务器上的数据
+      api.post('/api/user/update_activity/', {
+        userId: this.user.id,
+        activity: activity
+      }).then(res => {
+        if (res.status === 'success') {
+          console.log('myMusicPage: API更新活动成功,新活动:', activity);
+          
+          // 更新Vuex中的用户信息
+          store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+            console.log('myMusicPage: Vuex状态已更新,当前活动:', activity, '从user对象读取:', this.user.activity);
+            
+            // 强制更新视图
+            this.$nextTick(() => {
+              this.$forceUpdate();
+              console.log('myMusicPage: UI已强制更新后的活动:', this.user.activity);
+            });
+            
+            this.$message({
+              type: 'success',
+              message: '活动已更新',
+              duration: 1500
+            });
+          });
+        } else {
+          console.error('myMusicPage: API更新活动失败:', res.message);
+          
+          // 如果API请求失败，恢复之前的活动状态
+          const revertUser = JSON.parse(JSON.stringify(this.user));
+          revertUser.activity = previousActivity;
+          
+          store.dispatch('updateUserPreserveAdmin', revertUser).then(() => {
+            this.$nextTick(() => this.$forceUpdate());
+          });
+          
+          this.$message.error(res.message || '更新活动失败');
+        }
+      }).catch(err => {
+        console.error('myMusicPage: 更新活动失败:', err);
+        
+        // 如果API请求失败，恢复之前的活动状态
+        const revertUser = JSON.parse(JSON.stringify(this.user));
+        revertUser.activity = previousActivity;
+        
+        store.dispatch('updateUserPreserveAdmin', revertUser).then(() => {
+          this.$nextTick(() => this.$forceUpdate());
+        });
+        
+        this.$message.error('更新活动失败');
+      });
+    },
   }
 }
 </script>
@@ -750,7 +1242,7 @@ export default {
 
 .profile-stats {
   display: flex;
-  gap: 20px;
+  gap: 15px;
 }
 
 .stat-item {
@@ -760,6 +1252,11 @@ export default {
   background: rgba(255, 255, 255, 0.2);
   padding: 5px 15px;
   border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .stat-value {
@@ -845,7 +1342,8 @@ export default {
 /* 歌曲项样式 */
 .songs-container {
   position: relative;
-  min-height: 200px;
+  min-height: 100px;
+  width: 100%;
 }
 
 .song-item {
@@ -975,6 +1473,7 @@ export default {
 .song-actions {
   display: flex;
   justify-content: center;
+  position: relative;
 }
 
 .favorite-icon {
@@ -982,6 +1481,8 @@ export default {
   transition: all 0.3s ease;
   font-size: 20px;
   color: #dcdfe6;
+  position: relative;
+  z-index: 1;
 }
 
 .favorite-icon:hover {
@@ -992,14 +1493,70 @@ export default {
   color: #ff4757;
 }
 
+.song-actions::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 71, 87, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.song-actions.show-ripple::before {
+  animation: ripple-effect 0.8s ease-out;
+}
+
 .animate-favorite {
   animation: favorite-animation 0.5s ease;
 }
 
 @keyframes favorite-animation {
   0% { transform: scale(1); }
-  50% { transform: scale(1.3) rotate(20deg); }
+  25% { transform: scale(1.4) rotate(-15deg); color: #ff4757; }
+  50% { transform: scale(0.8) rotate(15deg); }
+  75% { transform: scale(1.2); }
   100% { transform: scale(1); }
+}
+
+@keyframes ripple-effect {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    width: 70px;
+    height: 70px;
+    opacity: 0;
+  }
+}
+
+.song-item-leave-active {
+  animation: slide-out 0.5s ease forwards;
+  position: absolute;
+  width: 100%;
+  z-index: 0;
+}
+
+@keyframes slide-out {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+}
+
+.song-item-move {
+  transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 /* 空状态样式 */
@@ -1069,11 +1626,17 @@ export default {
 
 /* 列表动画 */
 .song-list-enter-active, .song-list-leave-active {
-  transition: all 0.5s;
+  transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
 }
-.song-list-enter, .song-list-leave-to {
+
+.song-list-enter {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateY(20px);
+}
+
+.song-list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
 }
 
 /* 响应式样式 */
@@ -1094,6 +1657,7 @@ export default {
   
   .profile-stats {
     justify-content: center;
+    flex-wrap: wrap;
   }
   
   .settings-button {
@@ -1128,5 +1692,164 @@ export default {
   .play-btn, .favorite-icon {
     font-size: 18px;
   }
+  
+  .mood-dropdown {
+    right: 0;
+    left: auto;
+  }
+}
+
+/* 用户心情选择器样式 */
+.mood-selector {
+  position: relative;
+  margin-left: 15px;
+  width: fit-content;
+}
+
+.current-mood {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 5px 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.current-mood:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.mood-text {
+  margin: 0 5px;
+  font-size: 14px;
+}
+
+.mood-arrow {
+  font-size: 12px;
+  margin-left: 5px;
+  transition: transform 0.3s ease;
+}
+
+.mood-selector.active .mood-arrow {
+  transform: rotate(180deg);
+}
+
+.mood-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 150px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  margin-top: 10px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.mood-option {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #606266;
+}
+
+.mood-option:hover {
+  background: #f5f7fa;
+}
+
+.mood-option.active {
+  background: #ecf5ff;
+  color: #409EFF;
+}
+
+.mood-option i {
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+/* 显示/隐藏动画 */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* 用户活动选择器样式 */
+.activity-selector {
+  position: relative;
+  margin-left: 15px;
+  width: fit-content;
+}
+
+.current-activity {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 5px 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.current-activity:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.activity-text {
+  margin: 0 5px;
+  font-size: 14px;
+}
+
+.activity-arrow {
+  font-size: 12px;
+  margin-left: 5px;
+  transition: transform 0.3s ease;
+}
+
+.activity-selector.active .activity-arrow {
+  transform: rotate(180deg);
+}
+
+.activity-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 150px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  margin-top: 10px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.activity-option {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #606266;
+}
+
+.activity-option:hover {
+  background: #f5f7fa;
+}
+
+.activity-option.active {
+  background: #ecf5ff;
+  color: #409EFF;
+}
+
+.activity-option i {
+  margin-right: 10px;
+  font-size: 16px;
 }
 </style>

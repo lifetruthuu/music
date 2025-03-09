@@ -27,6 +27,7 @@
       <div class="header">
         <span class="song-title">歌曲标题</span>
         <span class="song-duration">时长</span>
+        <span class="song-type">类型</span>
         <span class="song-artist">歌手</span>
         <span class="song-actions">收藏</span>
       </div>
@@ -52,11 +53,15 @@
             <span class="title">{{ song.name }}</span>
           </div>
 
-          <!-- 播放控件 -->
+          <!-- 时长显示 -->
           <div class="song-duration">
-            <audio controls class="audio-player" @play="handlePlay">
-              <source :src="getFullAudioPath(song.audioPath)" type="audio/mpeg">
-            </audio>
+            <span class="duration-text">{{ formatTime(song.time) || formatDuration(song.duration) }}</span>
+          </div>
+
+          <!-- 类型信息 -->
+          <div class="song-type">
+            <span v-if="song.types && song.types.length > 0" class="type-tag">{{ song.typeName || (song.types && song.types.length > 0 ? song.types[0].name : '') }}</span>
+            <span v-else>-</span>
           </div>
 
           <!-- 歌手信息 -->
@@ -74,19 +79,21 @@
                 'favorite-icon',
                 { 'animate-favorite': song.isAnimating }
               ]"
-              @click="onFavitory(song)"
+              @click="onFavority(song)"
             ></i>
           </div>
         </div>
       </transition-group>
 
       <!-- 添加分页组件 -->
-      <Pagination
-        :total="totalSongs"
-        :page-size="pageSize"
-        :current-page.sync="currentPage"
-        @change="handlePageChange"
-      />
+      <div class="pagination-container">
+        <Pagination
+          :total="totalSongs"
+          :page-size="pageSize"
+          :current-page.sync="currentPage"
+          @change="handlePageChange"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -165,17 +172,52 @@ export default {
       return item.musicPath ? this.fullImagePath(item.musicPath) : require('@/assets/1740221844832.jpg');
     },
     
-    handlePlay(event) {
-      // 如果有正在播放的音频且不是当前音频
-      if (this.currentAudio && this.currentAudio !== event.target) {
-        this.currentAudio.pause();  // 暂停其他音频
-      }
-      this.currentAudio = event.target;  // 记录当前播放的音频
+    handlePlay(song) {
+      // 这个方法不再实际播放音乐，但为了向后兼容性保留方法体
+      console.log('播放功能已移除，歌曲ID:', song.id);
     },
     
-    onFavitory(song) {
+    formatDuration(seconds) {
+      // 如果duration是undefined或null，返回默认值
+      if (!seconds) return '00:00';
+      
+      // 将秒数转换为分钟:秒格式
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = Math.floor(seconds % 60);
+      
+      // 格式化为两位数
+      const formattedMinutes = String(minutes).padStart(2, '0');
+      const formattedSeconds = String(remainingSeconds).padStart(2, '0');
+      
+      return `${formattedMinutes}:${formattedSeconds}`;
+    },
+    
+    // 添加格式化时间显示的方法
+    formatTime(time) {
+      if (!time) return '00:00';
+      
+      // 处理时间格式，如03:46.23格式化为03:46
+      let formattedTime = time;
+      if (time.includes('.')) {
+        formattedTime = time.split('.')[0];
+      }
+      return formattedTime;
+    },
+    
+    onFavority(song) {
       // 设置动画标志
       this.$set(song, 'isAnimating', true);
+      
+      // 如果是要添加收藏，则添加波纹效果
+      if (song.favorited != '1') {
+        const container = event.target.closest('.song-actions');
+        if (container) {
+          container.classList.add('show-ripple');
+          setTimeout(() => {
+            container.classList.remove('show-ripple');
+          }, 800);
+        }
+      }
       
       let url = song.favorited == '1' ? '/api/music/deleteFavorites/' : '/api/music/favorites/';
       api.post(url, {
@@ -184,6 +226,15 @@ export default {
       }).then(res => {
         song.favorited = song.favorited == '1' ? 0 : 1;
         this.$emit("收藏成功");
+        
+        // 显示收藏操作提示信息
+        this.$message({
+          message: song.favorited === 1 ? '♥ 已添加到我的收藏！' : '已从收藏中移除',
+          type: song.favorited === 1 ? 'success' : 'info',
+          duration: 2000,
+          showClose: true,
+          offset: 80
+        });
         
         // 动画结束后移除动画类
         setTimeout(() => {
@@ -194,6 +245,13 @@ export default {
       }).catch(err => {
         console.error('请求失败:', err);
         song.isAnimating = false;
+        
+        // 显示失败提示
+        this.$message({
+          message: '操作失败，请稍后再试',
+          type: 'error',
+          duration: 2000
+        });
       });
     },
     
@@ -249,7 +307,7 @@ export default {
     navigateToSongDetail(song) {
       // 通过事件机制触发跳转
       console.log("[gedanMusicPage] 触发歌曲详情跳转事件，歌曲ID:", song.id);
-      this.$emit("onGoToSongDetail", song.id);
+      this.$emit("onGoToSongDetail", song.id, this.user.id);
     },
   }
 }
@@ -361,23 +419,28 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   overflow: hidden;
+  padding-bottom: 20px;
 }
 
 /* 表头样式 */
 .header {
   display: grid;
-  grid-template-columns: 4fr 2fr 2fr 1fr;
+  grid-template-columns: 3fr 1fr 1fr 1.5fr 0.5fr;
   padding: 16px 20px;
   background: #f8f9fa;
   font-weight: 600;
   color: #606266;
   border-bottom: 1px solid #ebeef5;
+  margin-bottom: 10px;
 }
 
 /* 歌曲列表容器 */
 .song-list-container {
   position: relative;
   min-height: 100px;
+  padding: 0 20px;
+  max-width: 95%;
+  margin: 0 auto;
 }
 
 /* 歌曲项动画 */
@@ -435,19 +498,29 @@ export default {
 /* 歌曲项布局 */
 .song-item {
   display: grid;
-  grid-template-columns: 4fr 2fr 2fr 1fr;
+  grid-template-columns: 3fr 1fr 1fr 1.5fr 0.5fr;
   align-items: center;
   padding: 15px 20px;
-  transition: background 0.3s;
+  transition: all 0.3s ease;
   border-bottom: 1px solid #f0f0f0;
+  margin: 10px 0;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+  background-color: #ffffff;
 }
 
 .song-item:hover {
-  background: #f5f7fa;
+  background: #f9fafc;
+  transform: translateX(5px) translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 .even-row {
-  background-color: #fafafa;
+  background-color: #f9fafc;
+}
+
+.even-row:hover {
+  background-color: #f5f7fa;
 }
 
 /* 歌曲信息区域 */
@@ -456,6 +529,7 @@ export default {
   align-items: center;
   gap: 15px;
   transition: transform 0.2s ease;
+  padding-left: 5px;
 }
 
 .song-info:hover {
@@ -512,10 +586,28 @@ export default {
   filter: brightness(0.8);
 }
 
+/* 时长显示样式 */
+.song-duration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.duration-text {
+  font-size: 14px;
+  color: #606266;
+  font-family: 'Courier New', monospace;
+  background-color: #f8f9fb;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
 /* 歌手信息 */
 .song-artist {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .artist-info {
@@ -531,21 +623,92 @@ export default {
   font-size: 20px;
   display: flex;
   justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
-.animate-favorite {
-  animation: favorite-animation 0.5s ease;
+.song-actions {
+  position: relative;
 }
 
-@keyframes favorite-animation {
+/* 收藏成功的动画 */
+.animate-favorite.el-icon-star-on {
+  animation: favorite-added-animation 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 取消收藏的动画 */
+.animate-favorite.el-icon-star-off {
+  animation: favorite-removed-animation 0.8s ease;
+}
+
+/* 收藏按钮背后的波纹效果 */
+.song-actions::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 71, 87, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* 点击收藏时添加波纹效果 */
+.song-actions.show-ripple::before {
+  animation: ripple-effect 0.8s ease-out;
+}
+
+@keyframes favorite-added-animation {
   0% {
     transform: scale(1);
   }
+  25% {
+    transform: scale(1.4) rotate(-15deg);
+    color: #ff4757;
+  }
   50% {
-    transform: scale(1.3);
+    transform: scale(0.8) rotate(15deg);
+  }
+  75% {
+    transform: scale(1.2);
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes favorite-removed-animation {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.1) rotate(10deg);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 波纹扩散效果 */
+@keyframes ripple-effect {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    width: 70px;
+    height: 70px;
+    opacity: 0;
   }
 }
 
@@ -560,6 +723,27 @@ export default {
 .el-icon-star-off:hover {
   color: #ff4757;
   transform: scale(1.1);
+}
+
+/* 新增歌曲类型样式 - 参考 singerDetailPage */
+.song-type {
+  text-align: center;
+  font-size: 14px;
+  color: #606266;
+}
+
+.type-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: #ecf5ff;
+  color: #409eff;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+/* 移除旧的类型样式 */
+.type-name, .type-more {
+  display: none;
 }
 
 /* 响应式处理 */
@@ -601,5 +785,13 @@ export default {
     justify-content: center;
     margin-top: 10px;
   }
+}
+
+/* 添加分页组件样式 */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 0 20px;
 }
 </style>
