@@ -1,7 +1,7 @@
 <template>
   <div class="main-container">
     <!-- 顶部导航栏 -->
-    <Header @oChangeMenu="oChangeMenu" @oChangeSearchMenu="oChangeSearchMenu"></Header>
+    <Header ref="headerComponent" @oChangeMenu="oChangeMenu" @oChangeSearchMenu="oChangeSearchMenu"></Header>
 
     <!-- 中部内容 -->
 
@@ -19,6 +19,7 @@
                    @onGoToSongDetail="onGoToSongDetail"
                    @onGoToSongDetailFromSinger="onGoToSongDetailFromSinger"
                    @onGoToSongDetailFromMyMusic="onGoToSongDetailFromMyMusic"
+                   @onGoToRecommendFromMyMusic="onGoToRecommendFromMyMusic"
                    :queryStr="queryStr"
                    :index="index"
                    :geDanId="geDanId"
@@ -26,6 +27,7 @@
                    :fromGedan="songSource === 'gedan'"
                    :fromSinger="songSource === 'singer'"
                    :fromMyMusic="songSource === 'myMusic'"
+                   :userId="currentUserId"
                    :id="currentMusicId"/>
       </transition>
     </div>
@@ -37,6 +39,7 @@
 <script>
 
 import api from "@/api/axios";
+import BehaviorService from "@/services/BehaviorService";
 import Header from '@/components/com/header.vue';
 import YongHuPage from '@/components/qiantaiPage/yonghuPage.vue';
 import MusicPage from '@/components/qiantaiPage/musicPage.vue';
@@ -101,7 +104,13 @@ export default{
         active: false,
         component: myMusicPage,
 
-      }, 
+      },
+      {
+        key: 'tuijianPage',
+        name: '歌曲推荐',
+        active: false,
+        component: tuijianPage,
+      },
       {
         key: 'gedanMusicPage',
         name: '歌单音乐',
@@ -119,12 +128,6 @@ export default{
         name: '歌曲详情',
         active: false,
         component: songDetailPage,
-      },
-      {
-        key: 'tuijianPage',
-        name: '歌曲推荐',
-        active: false,
-        component: tuijianPage,
       }],
       currentPageCode: 'YongHuPage',
       singerId: null,
@@ -133,7 +136,9 @@ export default{
       index: null,
       // 新增：记录歌曲详情页的来源
       songSource: null,
-      previousComponent: null  // 记录前一个组件
+      previousComponent: null,  // 记录前一个组件
+      startPlayTime: null, // 添加播放开始时间
+      currentUserId: null, // 新增：当前用户的ID
     }
   },
   computed: {
@@ -200,25 +205,33 @@ export default{
     },
 
     // 处理从歌单中点击歌曲进入详情页
-    onGoToSongDetail(songId) {
+    onGoToSongDetail(songId, userId) {
       // 保存当前组件作为返回目标
       this.previousComponent = this.currentComponent;
       this.songSource = 'gedan';
       
-      // 设置歌曲ID并切换到歌曲详情页
+      // 设置歌曲ID和用户ID并切换到歌曲详情页
       this.currentMusicId = songId;
+      this.currentUserId = userId; // 保存用户ID
+      
+      console.log("[index] 从gedanMusicPage接收到跳转请求，歌曲ID:", songId, "用户ID:", userId);
+      
       this.currentComponent = songDetailPage;
       this.currentPageCode = 'songDetailPage';
     },
     
     // 处理从歌手详情页点击歌曲进入详情页
-    onGoToSongDetailFromSinger(songId) {
+    onGoToSongDetailFromSinger(songId, userId) {
       // 保存当前组件作为返回目标
       this.previousComponent = this.currentComponent;
       this.songSource = 'singer';
       
-      // 设置歌曲ID并切换到歌曲详情页
+      // 设置歌曲ID和用户ID并切换到歌曲详情页
       this.currentMusicId = songId;
+      this.currentUserId = userId; // 保存用户ID
+      
+      console.log("[index] 从singerDetailPage接收到跳转请求，歌曲ID:", songId, "用户ID:", userId);
+      
       this.currentComponent = songDetailPage;
       this.currentPageCode = 'songDetailPage';
     },
@@ -256,118 +269,40 @@ export default{
       if(this.currentPageCode == 'singerPage' || this.currentPageCode ==  'myMusicPage'){
         return;
       }else{
+        // 确保管理员状态
+        this.ensureAdminStatus();
+        
         let index = menu.index;
         this.currentComponent = this.menu[index].component; // 切换到用户管理页面
-        this.currentPageCode = this.menu[index].key
+        this.currentPageCode = this.menu[index].key;
+        
+        // 组件切换后再次确认
+        this.$nextTick(() => {
+          this.ensureAdminStatus();
+        });
       }
     },
     oChangeMenu(menu) {
       this.singerId = null;
       let index = menu.index;
 
-      this.currentComponent = this.menu[index].component; // 切换到用户管理页面
-      this.currentPageCode = this.menu[index].key
-    },
-
-    seekAudio(value) {
-      const audio = this.$refs.audioPlayer;
-      audio.currentTime = (value / 100) * audio.duration;
-    },
-
-    // 切换收藏状态
-    toggleFavorite() {
-      this.isFavorited = !this.isFavorited;
-      let message = this.isFavorited ? '已添加到收藏':'已取消收藏'
-      let url = this.isFavorited ? '/api/music/deleteFavorites/' : '/api/music/favorites/'
-      api.post(url, {
-        musicId: this.currentMusicId,
-        userId: this.id ,
-      }).then(res => {
-        this.$message.success(message);
-      }).catch(err => {
-        console.error('请求失败:', err);
-      });
-
-
-    },
-
-    // 下载音频
-    downloadAudio() {
-      if (!this.currentAudioPath) {
-        this.$message.warning('没有可下载的音频');
-        return;
+      // 即将切换到我的音乐页面
+      if (menu.index === 3) { // 3是"我的音乐"的索引
+        // 在组件切换前，确认管理员权限
+        this.ensureAdminStatus();
       }
-      const link = document.createElement('a');
-      link.href = this.currentAudioPath;
-      link.download = this.currentAudioName || 'audio';
-      link.click();
-      this.$message.success('下载成功');
-    },
 
+      this.currentComponent = this.menu[index].component; // 切换到用户管理页面
+      this.currentPageCode = this.menu[index].key;
+
+      // 组件切换后再次确认管理员权限
+      this.$nextTick(() => {
+        this.ensureAdminStatus();
+      });
+    },
 
     onHoutai(){
       window.open('http://localhost:8080/login#/houtaiPage', '_blank');
-    },
-    fullImagePath(path) {
-      // 拼接完整的图片 URL
-      return `http://localhost:8000${path}`;
-    },
-
-
-    onAudio(item, index){
-      if (!item.audioPath) {
-        console.error('无效的音频路径');
-        return;
-      }
-      this.currentMusicId = item.id;
-      this.currentAudioPath = `http://localhost:8000${item.audioPath}`;
-      this.currentAudioName = item.name;
-      this.currentAudioSinger = item.singerNames;
-      this.currentMusicPath= item.musicPath;
-
-      const audio = this.$refs.audioPlayer;
-      if (!audio) {
-        console.error('audio元素未找到');
-        return;
-      }
-
-      // 加载并播放音频
-      audio.load();
-      audio.play().catch(error => {
-        if (error.name === 'NotAllowedError') {
-          console.error('播放被阻止：请先点击页面任意位置交互');
-        } else {
-          console.error('播放失败:', error);
-        }
-      });
-    },
-
-    updateProgress() {
-      this.progress = (this.$refs.audioPlayer.currentTime / this.$refs.audioPlayer.duration) * 100;
-    },
-    handleAudioEnded() {
-      this.progress = 0; // 音频播放结束，重置进度
-    },
-
-    // 改变音量
-    changeVolume(value) {
-      const audio = this.$refs.audioPlayer;
-      if (audio) {
-        audio.volume = value;
-      }
-    },
-
-    // 切换音量图标
-    toggleVolume() {
-      const audio = this.$refs.audioPlayer;
-      if (audio) {
-        if (this.volume === 0) {
-          this.volume = 1; // 如果音量为0，设置为最大
-        } else {
-          this.volume = 0; // 否则设置为0
-        }
-        audio.volume = this.volume;
-      }
     },
 
     initData() {
@@ -387,20 +322,221 @@ export default{
 
     onBackToMyMusic() {
       console.log("[index] 收到返回我的音乐事件");
+      // 确保管理员状态
+      this.ensureAdminStatus();
+      
       this.currentComponent = myMusicPage;
       this.currentPageCode = 'myMusicPage';
+      
+      // 组件切换后再次确认
+      this.$nextTick(() => {
+        this.ensureAdminStatus();
+      });
     },
 
     // 处理从我的音乐页面点击歌曲进入详情页
-    onGoToSongDetailFromMyMusic(songId) {
+    onGoToSongDetailFromMyMusic(songId, userId) {
+      console.log("[index] 从myMusicPage接收到跳转请求，歌曲ID:", songId, "用户ID:", userId);
+      
       // 保存当前组件作为返回目标
       this.previousComponent = this.currentComponent;
       this.songSource = 'myMusic';
       
-      // 设置歌曲ID并切换到歌曲详情页
+      // 设置歌曲ID、用户ID并切换到歌曲详情页
       this.currentMusicId = songId;
-      this.currentComponent = songDetailPage;
-      this.currentPageCode = 'songDetailPage';
+      this.currentUserId = userId; // 保存用户ID
+      
+      console.log("[index] 设置currentUserId:", this.currentUserId);
+      
+      // 确保在组件切换前保存好参数
+      this.$nextTick(() => {
+        this.currentComponent = songDetailPage;
+        this.currentPageCode = 'songDetailPage';
+        console.log("[index] 已切换到songDetailPage，传递的用户ID:", this.currentUserId);
+      });
+    },
+
+    // 修改下载音频函数
+    downloadAudio() {
+      if (!this.currentAudioPath) {
+        this.$message.warning('没有可下载的音频');
+        return;
+      }
+      
+      // 记录下载行为
+      if (this.currentMusicId) {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        BehaviorService.recordBehavior({
+          userId: user.id,
+          musicId: this.currentMusicId,
+          action_type: 'download'
+        });
+      }
+      
+      const link = document.createElement('a');
+      link.href = this.currentAudioPath;
+      link.download = this.currentAudioName || 'audio';
+      link.click();
+      this.$message.success('下载成功');
+    },
+
+    // 修改音频播放函数
+    onAudio(item, index){
+      if (!item.audioPath) {
+        console.error('无效的音频路径');
+        return;
+      }
+      
+      // 获取用户信息
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      // 如果当前有歌曲正在播放，记录播放中断行为
+      if (this.startPlayTime && this.currentMusicId) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        const audio = this.$refs.audioPlayer;
+        const completionRate = audio && audio.duration ? audio.currentTime / audio.duration : 0;
+        
+        // 构建歌曲对象，用于记录
+        const currentSong = {
+          id: this.currentMusicId,
+          name: this.currentAudioName,
+          singer: this.currentAudioSinger
+        };
+        
+        BehaviorService.recordPlay(currentSong, user.id, 'interrupt', duration, completionRate);
+        BehaviorService.recordBehavior({
+          userId: user.id,
+          musicId: this.currentMusicId,
+          action_type: 'interrupt',
+          play_duration: duration,
+          play_completion_rate: completionRate
+        });
+      }
+      
+      this.currentMusicId = item.id;
+      this.currentAudioPath = `http://localhost:8000${item.audioPath}`;
+      this.currentAudioName = item.name;
+      this.currentAudioSinger = item.singerNames;
+      this.currentMusicPath = item.musicPath;
+
+      const audio = this.$refs.audioPlayer;
+      if (!audio) {
+        console.error('audio元素未找到');
+        return;
+      }
+
+      // 加载并播放音频
+      audio.load();
+      audio.play().then(() => {
+        // 记录播放开始时间
+        this.startPlayTime = new Date();
+        
+        // 记录播放行为
+        BehaviorService.recordPlay(item, user.id, 'play');
+        BehaviorService.recordBehavior({
+          userId: user.id,
+          musicId: item.id,
+          action_type: 'play',
+          position_in_playlist: index
+        });
+      }).catch(error => {
+        if (error.name === 'NotAllowedError') {
+          console.error('播放被阻止：请先点击页面任意位置交互');
+        } else {
+          console.error('播放失败:', error);
+        }
+      });
+    },
+
+    // 添加新的音频事件处理函数
+    onAudioPause() {
+      if (!this.startPlayTime || !this.currentMusicId) return;
+      
+      const audio = this.$refs.audioPlayer;
+      if (!audio) return;
+      
+      const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+      const completionRate = audio.duration ? audio.currentTime / audio.duration : 0;
+      
+      // 构建歌曲对象，用于记录
+      const currentSong = {
+        id: this.currentMusicId,
+        name: this.currentAudioName,
+        singer: this.currentAudioSinger
+      };
+      
+      // 获取用户信息
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      BehaviorService.recordPlay(currentSong, user.id, 'pause', duration, completionRate);
+      BehaviorService.recordBehavior({
+        userId: user.id,
+        musicId: this.currentMusicId,
+        action_type: 'pause',
+        play_duration: duration,
+        play_completion_rate: completionRate
+      });
+    },
+    
+    onAudioEnded() {
+      if (!this.startPlayTime || !this.currentMusicId) return;
+      
+      const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+      
+      // 构建歌曲对象，用于记录
+      const currentSong = {
+        id: this.currentMusicId,
+        name: this.currentAudioName,
+        singer: this.currentAudioSinger
+      };
+      
+      // 获取用户信息
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      BehaviorService.recordPlay(currentSong, user.id, 'complete', duration, 1.0);
+      BehaviorService.recordBehavior({
+        userId: user.id,
+        musicId: this.currentMusicId,
+        action_type: 'complete',
+        play_duration: duration,
+        play_completion_rate: 1.0
+      });
+      
+      this.startPlayTime = null;
+      // 可以在这里实现自动播放下一首歌曲的逻辑
+    },
+
+    onGoToRecommendFromMyMusic() {
+      console.log("[index] 从myMusicPage接收到跳转到推荐音乐页面的请求");
+      
+      // 保存当前组件作为返回目标
+      this.previousComponent = this.currentComponent;
+      
+      // 切换到推荐音乐页面
+      this.currentComponent = tuijianPage;
+      this.currentPageCode = 'tuijianPage';
+      console.log("[index] 已切换到tuijianPage");
+    },
+
+    // 添加新方法，确保管理员状态
+    ensureAdminStatus() {
+      // 获取header组件引用
+      const headerRef = this.$refs.headerComponent;
+      if (!headerRef) return;
+
+      // 从localStorage读取用户信息
+      const userString = localStorage.getItem('user');
+      if (userString) {
+        try {
+          const userObj = JSON.parse(userString);
+          const isAdmin = userObj && userObj.id === '1';
+          
+          // 强制更新header组件的isAdmin状态
+          headerRef.isAdmin = isAdmin;
+        } catch (e) {
+          console.error('解析localStorage中的用户信息失败:', e);
+        }
+      }
     },
   },
 
@@ -410,6 +546,53 @@ export default{
     this.username = user.username;
     this.id = user.id;
     this.initData();
+  },
+
+  mounted() {
+    // 如果使用audio元素，挂载后添加事件监听
+    if (this.$refs.audioPlayer) {
+      this.$refs.audioPlayer.addEventListener('pause', this.onAudioPause);
+      this.$refs.audioPlayer.addEventListener('ended', this.onAudioEnded);
+    }
+    
+    // 页面挂载后确保管理员状态
+    this.$nextTick(() => {
+      this.ensureAdminStatus();
+    });
+  },
+
+  beforeDestroy() {
+    // 组件销毁前移除事件监听器
+    if (this.$refs.audioPlayer) {
+      this.$refs.audioPlayer.removeEventListener('pause', this.onAudioPause);
+      this.$refs.audioPlayer.removeEventListener('ended', this.onAudioEnded);
+      
+      // 如果有歌曲正在播放，记录中断行为
+      if (this.startPlayTime && this.currentMusicId && this.$refs.audioPlayer.playing) {
+        const duration = Math.floor((new Date() - this.startPlayTime) / 1000);
+        const completionRate = this.$refs.audioPlayer.duration ? 
+          this.$refs.audioPlayer.currentTime / this.$refs.audioPlayer.duration : 0;
+        
+        // 构建歌曲对象，用于记录
+        const currentSong = {
+          id: this.currentMusicId,
+          name: this.currentAudioName,
+          singer: this.currentAudioSinger
+        };
+        
+        // 获取用户信息
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        BehaviorService.recordPlay(currentSong, user.id, 'interrupt', duration, completionRate);
+        BehaviorService.recordBehavior({
+          userId: user.id,
+          musicId: this.currentMusicId,
+          action_type: 'interrupt',
+          play_duration: duration,
+          play_completion_rate: completionRate
+        });
+      }
+    }
   }
 }
 

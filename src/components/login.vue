@@ -55,8 +55,11 @@
 
 <script>
 import axios from 'axios';
+// 直接导入store实例
+import store from '@/store';
+
 export default {
-  name: 'HelloWorld',
+  name: 'Login',
   props: {
     msg: String
   },
@@ -70,40 +73,37 @@ export default {
         userName:[{required: true, message: '请输入用户名', trigger: 'blur'}],
         password:[{required: true, message: '请输入密码', trigger: 'blur'}]
       },
-      errorMessage: ''
+      errorMessage: '',
+      loading: false
     };
   },
   methods:{
     async onLogin(formName) {
       this.$refs[formName].validate(async (valid) => {
         if (valid) {
+          this.loading = true;
           try {
             const response = await axios.post('http://127.0.0.1:8000/api/login/', {
               username: this.ruleForm.userName,
               password: this.ruleForm.password,
             });
             if (response.data.user) {
-              // 登录成功，保存用户信息并跳转到首页
-              localStorage.setItem('user', JSON.stringify(response.data.user));
+              // 使用直接导入的store实例
+              store.dispatch('setUser', response.data.user);
+              
               this.$message({
                 message: '登录成功',
                 type: 'success'
               });
-              this.$router.push({ path: '/index', query: { userId: response.data.user.id } }); // 跳转到首页
+              this.$router.push({ path: '/index', query: { userId: response.data.user.id } });
             } else {
-              // 登录失败，显示错误信息
-              this.$message({
-                message: response.data.message || '登录失败',
-                type: 'error'
-              });
+              this.$message.error('用户名或密码错误');
             }
           } catch (error) {
-            // 请求失败，显示错误信息
-            this.$message({
-              message: '登录失败，请检查用户名和密码',
-              type: 'error'
-            });
-            console.error(error);
+            console.error('登录失败:', error);
+            this.$message.error('登录失败，请稍后再试');
+          } finally {
+            this.loading = false;
           }
         } else {
           return false;

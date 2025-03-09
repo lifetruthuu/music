@@ -101,12 +101,22 @@
       </div>
 
       <!-- 歌曲列表 -->
-      <transition-group name="song-list" tag="div" class="songs-container">
+      <transition-group 
+        name="song-list" 
+        tag="div" 
+        class="songs-container"
+        @before-leave="beforeItemLeave"
+        @after-leave="afterItemLeave"
+      >
         <div 
           class="song-item" 
           v-for="(song, index) in songs" 
-          :key="song.id"
-          :class="{ 'even-row': index % 2 === 1, 'playing': currentSong?.id === song.id }"
+          :key="song.id || index"
+          :class="{ 
+            'even-row': index % 2 === 1, 
+            'playing': currentSong?.id === song.id
+          }"
+          :data-index="index"
         >
           <div class="song-info" @click="goToSongDetail(song)">
             <span class="order">{{ index + 1 }}</span>
@@ -272,6 +282,8 @@
 import api from "@/api/axios";
 import AudioPlayer from '@/components/com/AudioPlayer.vue';
 import Pagination from '@/components/com/Pagination.vue';
+import { mapState } from 'vuex'; // 只导入mapState
+import store from '@/store/index'; // 修正为正确的路径
 
 export default {
   components: {
@@ -302,7 +314,6 @@ export default {
     
     return {
       songs: [],
-      user: {},
       totalFavorites: 0,
       totalSongs: 0,
       pageNum: 1,
@@ -348,6 +359,12 @@ export default {
     };
   },
 
+  computed: {
+    ...mapState({
+      user: state => state.user // 从Vuex获取用户信息
+    })
+  },
+
   watch: {
     queryStr(newVal) {
       this.searchQuery = newVal;
@@ -356,8 +373,6 @@ export default {
   },
 
   created() {
-    const userString = localStorage.getItem('user');
-    this.user = JSON.parse(userString) || {};
     this.initData();
   },
 
@@ -458,7 +473,7 @@ export default {
             if (res.status === 'success') {
               this.$message.success('个人信息更新成功');
               
-              // 更新本地用户信息
+              // 更新Vuex中的用户信息
               const updatedUser = {
                 ...this.user,
                 nickname: this.userFormData.nickname,
@@ -473,8 +488,8 @@ export default {
                 updatedUser.avatarUrl = res.avatarUrl;
               }
               
-              localStorage.setItem('user', JSON.stringify(updatedUser));
-              this.user = updatedUser;
+              // 使用直接导入的store实例和新的action
+              store.dispatch('updateUserPreserveAdmin', updatedUser);
               
               this.settingsDialogVisible = false;
               this.avatarPreview = null;
@@ -503,7 +518,9 @@ export default {
     },
     
     goToExplore() {
-      this.$router.push('/music');
+      // 触发事件，通知父组件切换到推荐音乐页面
+      console.log("[myMusicPage] 触发跳转到推荐音乐页面事件");
+      this.$emit("onGoToRecommendFromMyMusic");
     },
     
     confirmUnfavorite(song) {
@@ -517,27 +534,59 @@ export default {
       // 设置动画标志
       this.$set(this.currentSong, 'isAnimating', true);
 
+      // 添加波纹效果
+      const songIndex = this.songs.findIndex(song => song.id === this.currentSong.id);
+      if (songIndex !== -1) {
+        this.$nextTick(() => {
+          const songItems = document.querySelectorAll('.song-item');
+          if (songItems && songItems[songIndex]) {
+            const actionContainer = songItems[songIndex].querySelector('.song-actions');
+            if (actionContainer) {
+              actionContainer.classList.add('show-ripple');
+              setTimeout(() => {
+                actionContainer.classList.remove('show-ripple');
+              }, 800);
+            }
+          }
+        });
+      }
+
       api.post('/api/music/deleteFavorites/', {
         musicId: this.currentSong.id,
         userId: this.user.id,
       }).then(res => {
+        this.totalFavorites--;
         this.$message({
           type: 'success',
-          message: '已取消收藏'
+          message: '已取消收藏',
+          duration: 1500
         });
         
-        // 动画结束后移除歌曲
-        setTimeout(() => {
-          this.initData();
-        }, 500);
-        
+        // 关闭对话框
         this.unfavoriteDialogVisible = false;
+        
+        // 标记要删除的歌曲ID
+        const songIdToRemove = this.currentSong.id;
+        
+        // 使用setTimeout确保动画有更好的视觉效果
+        setTimeout(() => {
+          // 使用Vue的响应式系统更新数据，触发transition-group的动画
+          this.songs = this.songs.filter(song => song.id !== songIdToRemove);
+          this.totalSongs--;
+          
+          // 如果歌曲列表为空，更新总收藏数
+          if (this.songs.length === 0) {
+            this.totalFavorites = 0;
+          }
+        }, 300);
+        
       }).catch(err => {
         console.error('请求失败:', err);
         this.$message.error('取消收藏失败');
         if (this.currentSong) {
           this.currentSong.isAnimating = false;
         }
+        this.unfavoriteDialogVisible = false;
       });
     },
     
@@ -604,11 +653,14 @@ export default {
         if (res.status === 'success') {
           this.songs = res.list;
           this.totalSongs = res.total;
-          this.user = res.user || this.user;
-          this.totalFavorites = res.total || 0;
           
-          // 更新localStorage中的用户信息
-          localStorage.setItem('user', JSON.stringify(this.user));
+          // 如果API返回了更新的用户信息，使用新的action更新Vuex
+          if (res.user) {
+            // 使用直接导入的store实例和新的action
+            store.dispatch('updateUserPreserveAdmin', res.user);
+          }
+          
+          this.totalFavorites = res.total || 0;
         } else {
           this.$message.error(res.message || '获取数据失败');
           this.songs = [];
@@ -628,9 +680,6 @@ export default {
         this.$refs.player?.play();
       });
       this.recordPlayHistory(song.id);
-      
-      // 不再触发跳转到歌曲详情页事件
-      // this.$emit('onGoToSongDetailFromMyMusic', song.id);
     },
     
     togglePlay(song, index) {
@@ -655,8 +704,40 @@ export default {
     },
 
     goToSongDetail(song) {
-      // 触发跳转到歌曲详情页事件
-      this.$emit('onGoToSongDetailFromMyMusic', song.id);
+      // 触发
+      console.log("[myMusicPage] 跳转到歌曲详情，用户ID:", this.user.id);
+      this.$emit('onGoToSongDetailFromMyMusic', song.id, this.user.id);
+    },
+
+    beforeItemLeave(el) {
+      // 获取元素高度和位置信息
+      const rect = el.getBoundingClientRect();
+      
+      // 将元素设置为绝对定位，以不影响其他元素的初始位置
+      el.style.position = 'absolute';
+      el.style.top = rect.top + 'px';
+      el.style.left = rect.left + 'px';
+      el.style.width = rect.width + 'px';
+      el.style.height = rect.height + 'px';
+      el.style.zIndex = '10';
+      
+      // 应用移除动画
+      el.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      el.style.transform = 'translateX(30px)';
+      el.style.opacity = '0';
+    },
+
+    afterItemLeave(el) {
+      // 重置元素样式
+      el.style.position = '';
+      el.style.top = '';
+      el.style.left = '';
+      el.style.width = '';
+      el.style.height = '';
+      el.style.zIndex = '';
+      el.style.transform = '';
+      el.style.opacity = '';
+      el.style.transition = '';
     }
   }
 }
@@ -845,7 +926,8 @@ export default {
 /* 歌曲项样式 */
 .songs-container {
   position: relative;
-  min-height: 200px;
+  min-height: 100px;
+  width: 100%;
 }
 
 .song-item {
@@ -975,6 +1057,7 @@ export default {
 .song-actions {
   display: flex;
   justify-content: center;
+  position: relative;
 }
 
 .favorite-icon {
@@ -982,6 +1065,8 @@ export default {
   transition: all 0.3s ease;
   font-size: 20px;
   color: #dcdfe6;
+  position: relative;
+  z-index: 1;
 }
 
 .favorite-icon:hover {
@@ -992,14 +1077,70 @@ export default {
   color: #ff4757;
 }
 
+.song-actions::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 71, 87, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.song-actions.show-ripple::before {
+  animation: ripple-effect 0.8s ease-out;
+}
+
 .animate-favorite {
   animation: favorite-animation 0.5s ease;
 }
 
 @keyframes favorite-animation {
   0% { transform: scale(1); }
-  50% { transform: scale(1.3) rotate(20deg); }
+  25% { transform: scale(1.4) rotate(-15deg); color: #ff4757; }
+  50% { transform: scale(0.8) rotate(15deg); }
+  75% { transform: scale(1.2); }
   100% { transform: scale(1); }
+}
+
+@keyframes ripple-effect {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    width: 70px;
+    height: 70px;
+    opacity: 0;
+  }
+}
+
+.song-item-leave-active {
+  animation: slide-out 0.5s ease forwards;
+  position: absolute;
+  width: 100%;
+  z-index: 0;
+}
+
+@keyframes slide-out {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+}
+
+.song-item-move {
+  transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 /* 空状态样式 */
@@ -1069,11 +1210,17 @@ export default {
 
 /* 列表动画 */
 .song-list-enter-active, .song-list-leave-active {
-  transition: all 0.5s;
+  transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
 }
-.song-list-enter, .song-list-leave-to {
+
+.song-list-enter {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateY(20px);
+}
+
+.song-list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
 }
 
 /* 响应式样式 */

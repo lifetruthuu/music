@@ -71,6 +71,9 @@
 
 <script>
 import axios from 'axios';
+// 直接导入store实例
+import store from '@/store';
+
 export default {
   name: 'Register',
   data() {
@@ -112,7 +115,7 @@ export default {
     this.ruleForm.password = "";
     this.ruleForm.confirmPassword = "";
   },
-  methods:{
+  methods: {
     async onResigins(formName) {
       this.$refs[formName].validate(async (valid) => {
         if (valid) {
@@ -121,14 +124,26 @@ export default {
               username: this.ruleForm.userName,
               password: this.ruleForm.password,
             });
+            
             this.$message({
               message: '注册成功',
               type: 'success'
             });
-            // 注册成功后跳转到登录页
-            setTimeout(() => {
-              this.$router.push('/');
-            }, 1500);
+            
+            // 如果注册接口直接返回了用户信息，则存入Vuex
+            if (response.data.user) {
+              // 使用直接导入的store实例
+              store.dispatch('setUser', response.data.user);
+              // 注册并登录成功后直接跳转到首页
+              setTimeout(() => {
+                this.$router.push('/');
+              }, 1500);
+            } else {
+              // 如果注册接口没有返回用户信息，则跳转到登录页
+              setTimeout(() => {
+                this.$router.push('/');
+              }, 1500);
+            }
           } catch (error) {
             let message = error.response?.data?.message || '注册失败，请稍后再试';
             // 请求失败，显示错误信息
