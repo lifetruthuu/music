@@ -20,7 +20,6 @@ export default {
     
     return api.post('/api/user/record_behavior/', {
       ...apiParams,
-      timestamp: new Date().toISOString(),
       session_id: this.getSessionId(),
       device_type: this.getDeviceType(),
       time_of_day: this.getTimeOfDay(),
@@ -35,20 +34,23 @@ export default {
       musicId: song.id,
       recommendation_type: song.source || 'hybrid',
       feedback_type: feedbackType,
-      recommendation_position: position,
-      timestamp: new Date().toISOString()
+      recommendation_position: position
     });
   },
   
   // 记录播放数据
   recordPlay(song, userId, action, duration = 0, completionRate = 0) {
+    // 为了避免时区问题，我们只发送日期和时间的基本信息
     const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    
     return api.post('/api/music/play/', {
       musicId: song.id,
       userId: userId,
-      play_time: now.toISOString(),
-      date: now.toISOString().split('T')[0],
-      hour_min: `${now.getHours()}:${now.getMinutes()}`,
+      // 不发送完整的ISO时间字符串，只发送日期和小时:分钟格式
+      date: `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`,
+      hour_min: `${hours}:${minutes}`,
       play_duration: duration,
       play_completion_rate: completionRate,
       player_action: action,

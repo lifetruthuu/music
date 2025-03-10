@@ -67,6 +67,8 @@
 <script>
 import api from "@/api/axios";
 import BehaviorService from "@/services/BehaviorService";
+import store from "@/store";
+
 
 export default {
   name: 'TuijianPage',
@@ -80,8 +82,17 @@ export default {
       user: null,
       currentMood: '', // 用户当前心情
       currentActivity: '', // 用户当前活动
-      availableMoods: ['relaxed', 'energetic', 'happy', 'sad', 'focused'], // 可选心情
-      availableActivities: ['studying', 'working', 'exercising', 'relaxing', 'commuting'] // 可选活动
+      availableMoods: ['none', 'calm', 'happy', 'sad', 'angry', 'surprised', 'tired'], // 更新包括"无心情"选项
+      moodLabels: { // 添加心情值到显示文本的映射
+        'none': '无心情',
+        'calm': '平静',
+        'happy': '开心',
+        'sad': '悲伤',
+        'angry': '愤怒',
+        'surprised': '惊讶',
+        'tired': '疲惫'
+      },
+      availableActivities: ['studying', 'working', 'exercising', 'relaxing', 'commuting', ''] // 可选活动
     }
   },
   computed: {
@@ -93,19 +104,182 @@ export default {
         timeOfDay: BehaviorService.getTimeOfDay(),
         dayOfWeek: new Date().getDay(),
         mood: this.currentMood,
-        activity: this.currentActivity
+        activity: this.currentActivity // 确保活动信息也被发送给推荐系统
       };
     }
   },
+  watch: {
+    // 监听用户对象的变化，特别是mood属性
+    user: {
+      handler(newUser, oldUser) {
+        // 当用户整个对象变化时，检查心情是否变化
+        const newMood = newUser?.mood;
+        const oldMood = oldUser?.mood;
+        const newActivity = newUser?.activity;
+        const oldActivity = oldUser?.activity;
+        
+        if (newMood !== oldMood) {
+          console.log('tuijianPage: 监听到用户心情变化:', oldMood, '->', newMood);
+          
+          // 更新组件的当前心情
+          if (newMood && newMood !== this.currentMood) {
+            this.currentMood = newMood;
+            console.log('tuijianPage: 同步组件心情:', this.currentMood);
+          }
+        }
+        
+        if (newActivity !== oldActivity) {
+          console.log('tuijianPage: 监听到用户活动变化:', oldActivity, '->', newActivity);
+          
+          // 更新组件的当前活动
+          if (newActivity !== undefined && newActivity !== this.currentActivity) {
+            this.currentActivity = newActivity;
+            console.log('tuijianPage: 同步组件活动:', this.currentActivity);
+          }
+        }
+        
+        // 如果心情或活动有变化，强制更新UI
+        if (newMood !== oldMood || newActivity !== oldActivity) {
+          this.$nextTick(() => this.$forceUpdate());
+        }
+      },
+      deep: true, // 深度监听
+      immediate: true // 立即执行一次
+    }
+  },
   created() {
+    console.log('tuijianPage: created生命周期钩子执行');
+    
     const userString = localStorage.getItem('user');
     this.user = JSON.parse(userString);
-    this.loadRecommendations();
+    console.log('tuijianPage: 从localStorage获取到的用户：', this.user);
+    
+    // 先确保获取到用户心情和活动后再加载推荐
+    Promise.all([this.getUserMood(), this.getUserActivity()])
+      .then(() => {
+        console.log('tuijianPage: 心情和活动获取完成，准备加载推荐');
+        this.loadRecommendations();
+      })
+      .catch(err => {
+        console.error('tuijianPage: 获取用户数据失败，使用默认设置加载推荐:', err);
+        this.loadRecommendations();
+      });
+  },
+  mounted() {
+    // 添加页面可见性变化事件监听
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  },
+  beforeDestroy() {
+    // 移除页面可见性变化事件监听
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   },
   methods: {
+    // 获取用户心情
+    getUserMood() {
+      if (!this.user || !this.user.id) {
+        return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
+      }
+      
+      console.log('tuijianPage: 正在获取用户心情...');
+      
+      // 返回API调用的Promise
+      return api.get('/api/user/get_mood/', {
+        params: {
+          userId: this.user.id
+        }
+      }).then(res => {
+        console.log('tuijianPage: API返回的心情数据:', res);
+        
+        if (res.status === 'success') {
+          // 设置当前心情，确保有一个默认值
+          const mood = res.mood || 'none';
+          
+          console.log('tuijianPage: 更新心情为:', mood, '之前心情为:', this.currentMood);
+          
+          // 更新当前心情
+          this.currentMood = mood;
+          
+          // 同时更新用户对象，确保在其他地方也能获取到
+          if (this.user) {
+            const updatedUser = JSON.parse(JSON.stringify(this.user));
+            updatedUser.mood = mood;
+            
+            // 使用全局的store更新用户状态
+            return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+              console.log('tuijianPage: Vuex状态已更新，当前心情:', mood, '从user对象读取:', this.user.mood);
+              
+              // 强制重新计算和重新渲染
+              this.$nextTick(() => {
+                this.$forceUpdate();
+                console.log('tuijianPage: UI已强制更新');
+              });
+            });
+          }
+        }
+        return Promise.resolve(); // 确保总是返回一个Promise
+      }).catch(err => {
+        console.error('tuijianPage: 获取用户心情失败:', err);
+        return Promise.reject(err); // 将错误向上传递
+      });
+    },
+    
+    // 获取用户活动
+    getUserActivity() {
+      if (!this.user || !this.user.id) {
+        return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
+      }
+      
+      console.log('tuijianPage: 正在获取用户活动...');
+      
+      // 返回API调用的Promise
+      return api.get('/api/user/get_activity/', {
+        params: {
+          userId: this.user.id
+        }
+      }).then(res => {
+        console.log('tuijianPage: API返回的活动数据:', res);
+        
+        if (res.status === 'success') {
+          // 设置当前活动，确保有一个默认值
+          const activity = res.activity || '';
+          
+          console.log('tuijianPage: 更新活动为:', activity, '之前活动为:', this.currentActivity);
+          
+          // 更新当前活动
+          this.currentActivity = activity;
+          
+          // 同时更新用户对象，确保在其他地方也能获取到
+          if (this.user) {
+            const updatedUser = JSON.parse(JSON.stringify(this.user));
+            updatedUser.activity = activity;
+            
+            // 使用全局的store更新用户状态
+            return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+              console.log('tuijianPage: Vuex状态已更新，当前活动:', activity, '从user对象读取:', this.user.activity);
+              
+              // 强制重新计算和重新渲染
+              this.$nextTick(() => {
+                this.$forceUpdate();
+                console.log('tuijianPage: UI已强制更新');
+              });
+            });
+          }
+        }
+        return Promise.resolve(); // 确保总是返回一个Promise
+      }).catch(err => {
+        console.error('tuijianPage: 获取用户活动失败:', err);
+        return Promise.reject(err); // 将错误向上传递
+      });
+    },
+    
     // 加载推荐
     loadRecommendations() {
       this.loading = true;
+      
+      // 记录当前心情和活动，避免API调用过程中丢失
+      const currentMood = this.currentMood || this.user?.mood || 'none';
+      const currentActivity = this.currentActivity || this.user?.activity || '';
+      console.log('tuijianPage: loadRecommendations 前的心情:', currentMood, '活动:', currentActivity);
       
       // 获取当前上下文
       const context = this.userContext;
@@ -116,6 +290,38 @@ export default {
         pageSize: this.pageSize
       })
       .then(res => {
+        // 确保心情和活动不会在API响应后丢失
+        console.log('tuijianPage: loadRecommendations API返回后，状态检查:', 
+          '当前组件心情:', this.currentMood,
+          '当前组件活动:', this.currentActivity,
+          'Vuex心情:', this.user?.mood,
+          'Vuex活动:', this.user?.activity);
+        
+        // 如果API响应后心情丢失，恢复之前的心情
+        if (!this.currentMood || this.currentMood === '') {
+          this.currentMood = currentMood;
+          console.log('tuijianPage: 恢复之前的心情:', this.currentMood);
+        }
+        
+        // 如果API响应后活动丢失，恢复之前的活动
+        if (!this.currentActivity && currentActivity) {
+          this.currentActivity = currentActivity;
+          console.log('tuijianPage: 恢复之前的活动:', this.currentActivity);
+        }
+        
+        // 同步更新用户对象
+        if (this.user && ((!this.user.mood || this.user.mood !== currentMood) || 
+                           (this.user.activity !== currentActivity && currentActivity))) {
+          const updatedUser = JSON.parse(JSON.stringify(this.user));
+          if (!updatedUser.mood) updatedUser.mood = currentMood;
+          if (currentActivity) updatedUser.activity = currentActivity;
+          
+          store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
+            console.log('tuijianPage: 已将心情和活动同步到Vuex:', currentMood, currentActivity);
+            this.$forceUpdate();
+          });
+        }
+        
         this.recommendations = res.list || [];
         this.totalRecommendations = res.total || 0;
         
@@ -137,7 +343,7 @@ export default {
         });
       })
       .catch(err => {
-        console.error('获取推荐失败', err);
+        console.error('tuijianPage: 获取推荐失败', err);
         this.$message.error('获取推荐失败，请重试');
       })
       .finally(() => {
@@ -182,6 +388,17 @@ export default {
       }).catch(err => {
         console.error('添加收藏失败', err);
       });
+      
+      // 如果移除后列表为空，加载更多推荐
+      if (this.recommendations.length === 0) {
+        this.loadRecommendations();
+      }
+    },
+    
+    // 设置心情
+    setMood(mood) {
+      this.currentMood = mood;
+      this.loadRecommendations();
     },
     
     // 不喜欢歌曲
@@ -203,16 +420,26 @@ export default {
       }
     },
     
-    // 设置心情
-    setMood(mood) {
-      this.currentMood = mood;
-      this.loadRecommendations();
+    // 处理页面可见性变化
+    handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        // 页面变为可见时，重新获取用户心情和活动，然后刷新推荐
+        Promise.all([this.getUserMood(), this.getUserActivity()])
+          .then(() => {
+            // 只有当页面有推荐内容时才重新加载，避免重复加载
+            if (this.recommendations.length > 0) {
+              this.loadRecommendations();
+            }
+          })
+          .catch(err => {
+            console.error('tuijianPage: 刷新页面数据失败:', err);
+          });
+      }
     },
     
-    // 设置活动
-    setActivity(activity) {
-      this.currentActivity = activity;
-      this.loadRecommendations();
+    // 获取心情显示文本
+    getMoodLabel(mood) {
+      return this.moodLabels[mood] || '平静';
     }
   }
 }
