@@ -69,6 +69,7 @@ import api from "@/api/axios";
 import BehaviorService from "@/services/BehaviorService";
 import store from "@/store";
 
+
 export default {
   name: 'TuijianPage',
   data() {
@@ -387,6 +388,17 @@ export default {
       }).catch(err => {
         console.error('添加收藏失败', err);
       });
+      
+      // 如果移除后列表为空，加载更多推荐
+      if (this.recommendations.length === 0) {
+        this.loadRecommendations();
+      }
+    },
+    
+    // 设置心情
+    setMood(mood) {
+      this.currentMood = mood;
+      this.loadRecommendations();
     },
     
     // 不喜欢歌曲

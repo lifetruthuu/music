@@ -427,6 +427,7 @@ export default {
   computed: {
     ...mapState({
       user: state => state.user // 从Vuex获取用户信息
+
     }),
     
     // 用户当前的心情，有默认值
@@ -468,6 +469,7 @@ export default {
   },
 
   created() {
+
     console.log('myMusicPage: created生命周期钩子执行');
     
     // 先获取用户心情和活动，再初始化数据
@@ -480,6 +482,7 @@ export default {
         console.error('myMusicPage: 获取用户数据失败，使用默认设置初始化数据:', err);
         this.initData();
       });
+
   },
 
   mounted() {
@@ -832,6 +835,7 @@ export default {
               // 强制更新UI
               this.$nextTick(() => this.$forceUpdate());
             });
+
           }
           
           this.totalFavorites = res.total || 0;

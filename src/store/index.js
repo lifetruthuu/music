@@ -24,6 +24,7 @@ const store = new Vuex.Store({
       const currentActivity = currentUser?.activity
       console.log('Vuex: 更新用户前的心情:', currentMood, '活动:', currentActivity)
       
+
       // 创建新的用户对象，合并传入的数据
       const updatedUser = { ...userData }
       
