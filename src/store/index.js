@@ -9,6 +9,7 @@ const store = new Vuex.Store({
   state: {
     user: JSON.parse(localStorage.getItem('user')) || {}
   },
+  
   mutations: {
     SET_USER(state, user) {
       state.user = user
