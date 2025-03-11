@@ -23,10 +23,9 @@ export default {
     return {
       menuItems: [
         { index: 0, icon: 'el-icon-user', title: '用户管理',  },
-        { index: 1, icon: 'el-icon-s-custom', title: '歌单管理' },
+        { index: 1, icon: 'el-icon-folder', title: '歌单管理' },
         { index: 2, icon: 'el-icon-s-custom', title: '歌手管理' },
-        { index: 3, icon: 'el-icon-s-custom', title: '音乐管理' },
-        { index: 4, icon: 'el-icon-s-custom', title: '歌曲推荐' },
+        { index: 3, icon: 'el-icon-headset', title: '音乐管理' },
       ],
 
     };
