@@ -1,0 +1,118 @@
+<think>理解需求：用户希望我提供一个通用的提示词或指导，可以用来修改不同类型的文件上传功能。这应该是一个模板化的指导，让用户可以根据这个模板来修改代码以适应不同的上传场景。</think># 通用文件上传修改指导提示词
+
+以下是一个通用的提示词模板，您可以使用它来指导任何文件上传功能的修改：
+
+## 前端修改指导
+
+```
+请将[组件名]中的文件上传功能修改为以下实现：
+
+1. 文件上传组件应使用el-upload，并配置以下属性：
+   - 设置action="#"阻止自动上传
+   - 使用:http-request="[自定义上传方法]"替代默认上传行为
+   - 使用:before-upload="[验证方法]"进行文件验证
+   - accept属性设置为"[文件类型列表]"
+
+2. 创建以下关键变量：
+   - [fileObject]变量：存储实际文件对象
+   - [filePreview]变量：存储预览URL (Base64)
+   - form.[filePath]：保存原始文件路径
+
+3. 验证方法应包含：
+   - 文件类型验证：接受[文件类型列表]
+   - 文件大小限制：不超过[大小]MB
+   - 验证通过后保存文件对象并生成预览
+   - 返回false阻止自动上传
+
+4. 表单提交时：
+   - 使用FormData对象封装所有表单数据
+   - 如有新文件，使用formData.append('[字段名]', [fileObject])
+   - 如无新文件但有原路径，使用formData.append('[原路径字段]', form.[filePath])
+   - 设置Content-Type为'multipart/form-data'
+
+5. 预览显示逻辑：
+   - 优先使用[filePreview]显示新上传的文件
+   - 其次使用form.[fileUrl]显示已有文件
+   - 最后使用默认图片/文件图标
+```
+
+## 后端修改指导
+
+```
+请将[后端函数名]中的文件处理逻辑修改为以下实现：
+
+1. 基本数据获取：
+   - 从request.POST获取表单基本字段
+   - 从request.FILES获取上传的文件对象
+
+2. 文件处理逻辑：
+   - 检查request.FILES是否包含'[字段名]'
+   - 如有新上传文件，执行保存流程
+   - 如无新文件，检查是否有原路径参数，并保留原路径
+
+3. 文件保存流程：
+   - 确保目标目录存在：os.path.join('[根目录]', '[子目录]')
+   - 生成唯一文件名：使用uuid或时间戳
+   - 保存文件：使用chunks方式处理大文件
+   - 生成访问URL路径：/[访问前缀]/[文件名]
+
+4. 数据库更新：
+   - 更新模型的文件路径字段：model.[字段名] = [文件路径]
+   - 保存模型：model.save()
+
+5. 响应处理：
+   - 成功时返回JsonResponse，包含status和文件URL
+   - 错误时返回适当的错误信息和状态码
+```
+
+## 具体场景应用示例
+
+### 用户头像上传
+
+```
+将用户头像上传修改为：
+- 文件类型限制为：image/jpeg,image/png
+- 文件大小限制为：1MB
+- 文件存储目录为：media/avatars
+- 字段名为：avatar
+- 原路径字段为：avatarPath
+- 数据库字段为：avatar_url
+```
+
+### 产品图片上传
+
+```
+将产品图片上传修改为：
+- 文件类型限制为：image/jpeg,image/png,image/webp
+- 文件大小限制为：5MB
+- 文件存储目录为：media/products
+- 字段名为：productImage
+- 原路径字段为：imagePath
+- 数据库字段为：image_url
+```
+
+### 文档上传
+
+```
+将文档上传修改为：
+- 文件类型限制为：application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document
+- 文件大小限制为：10MB
+- 文件存储目录为：media/documents
+- 字段名为：document
+- 原路径字段为：documentPath
+- 数据库字段为：document_url
+```
+
+### 音频上传
+
+```
+将音频上传修改为：
+- 文件类型限制为：audio/mpeg,audio/wav
+- 文件大小限制为：20MB
+- 文件存储目录为：media/audio
+- 字段名为：audioFile
+- 原路径字段为：audioPath
+- 数据库字段为：audio_url
+```
+
+按照以上提示词和示例，您可以轻松修改任何类型的文件上传功能，只需替换相应的参数和字段名即可。每个场景的具体实现可能需要根据您的项目结构和需求进行微调。

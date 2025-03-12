@@ -37,13 +37,6 @@
           <div class="song-selector-container">
             <!-- 搜索和选择区域 -->
             <div class="song-search-area">
-              <el-input
-                v-model="songSearchKeyword"
-                placeholder="搜索歌曲名称..."
-                prefix-icon="el-icon-search"
-                clearable
-                @input="filterSongs">
-              </el-input>
               
               <el-select 
                 v-model="form.musicIds" 
@@ -132,29 +125,28 @@
         <el-form-item label="封面" prop="cover">
           <div class="cover-uploader-container">
             <!-- 封面预览区域 -->
-            <div class="cover-preview-area">
+            <div class="cover-preview-area" v-if="!form.cover_url">
               <img 
-                :src="form.cover_url || require('@/assets/img.png')" 
+                :src="require('@/assets/img.png')" 
                 alt="封面预览" 
                 class="cover-image" />
               <div class="cover-title">封面预览</div>
             </div>
             
             <!-- 上传控件区域 -->
-            <div class="upload-control-area">
-              <el-upload
-                class="cover-uploader"
-                action="#"
-                :auto-upload="false"
-                :show-file-list="false"
-                :before-upload="beforeCoverUpload"
-                accept="image/jpeg,image/png,image/jpg,image/gif">
-                <el-button type="primary" size="small" icon="el-icon-picture">
-                  上传封面
-                </el-button>
-                <div slot="tip" class="el-upload__tip">支持JPG、PNG格式，大小不超过2MB</div>
-              </el-upload>
-            </div>
+            <el-upload
+              class="avatar-uploader"
+              action=""
+              :auto-upload="false"
+              :on-change="handleCoverChange"
+              :file-list="fileList"
+              :limit="1"
+              :before-upload="beforeCoverUpload"
+              accept="image/jpeg,image/png,image/jpg,image/gif"
+              list-type="picture-card">
+              <i class="el-icon-plus"></i>
+              <div slot="tip" class="el-upload__tip">支持JPG、PNG格式，大小不超过2MB</div>
+            </el-upload>
           </div>
         </el-form-item>
       </el-form>
@@ -180,8 +172,10 @@ export default {
         name: '',
         musicIds: [],
         content: '',
-        cover: null
+        cover: null,
+        cover_url: ''
       },
+      fileList: [],
       songs: [],
       coverPreview: '',
       submitting: false,
@@ -231,6 +225,7 @@ export default {
         cover_url: '',
         musicIds: []
       };
+      this.fileList = [];
       this.selectedSongsPreview = [];
       this.songSearchKeyword = '';
       this.filteredSongs = [];
@@ -274,7 +269,7 @@ export default {
     submitForm() {
       this.$refs.musicForm.validate((valid) => {
         if (valid) {
-          if (!this.form.cover) {
+          if (!this.form.cover && this.fileList.length === 0) {
             this.$message.warning('请上传歌单封面');
             return false;
           }
@@ -285,22 +280,9 @@ export default {
           formData.append('name', this.form.name);
           formData.append('content', this.form.content || '');
           
-          // 使用专门的变量添加封面文件
+          // 使用coverFile变量添加封面文件
           if (this.coverFile) {
-            console.log('封面文件信息:', {
-              name: this.coverFile.name,
-              type: this.coverFile.type,
-              size: this.coverFile.size,
-              lastModified: new Date(this.coverFile.lastModified).toISOString()
-            });
-            
             formData.append('cover', this.coverFile);
-            
-            // 检查formData内容
-            console.log('FormData内容：');
-            for (let [key, value] of formData.entries()) {
-              console.log(key, ':', value instanceof File ? `${value.name} (${value.size} bytes)` : value);
-            }
           }
           
           // 处理歌曲ID数组
@@ -338,7 +320,34 @@ export default {
     filterSongs() {
       this.filteredSongs = this.songs.filter(song => song.name.toLowerCase().includes(this.songSearchKeyword.toLowerCase()));
     },
+    handleCoverChange(file) {
+      const isJPG = file.raw.type === 'image/jpeg' || file.raw.type === 'image/png';
+      const isLt2M = file.raw.size / 1024 / 1024 < 2;
+
+      if (!isJPG) {
+        this.$message.error('上传封面图片只能是 JPG 或 PNG 格式!');
+        this.fileList = [];
+        return false;
+      }
+      if (!isLt2M) {
+        this.$message.error('上传封面图片大小不能超过 2MB!');
+        this.fileList = [];
+        return false;
+      }
+
+      // 保存文件对象
+      this.coverFile = file.raw;
+      this.form.cover = file.raw;
+      
+      // 生成预览URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.form.cover_url = e.target.result;
+      };
+      reader.readAsDataURL(file.raw);
+    },
     beforeCoverUpload(file) {
+      // 只做验证，不处理文件，文件处理放在handleCoverChange中
       const isJPG = file.type === 'image/jpeg' || file.type === 'image/png';
       const isLt2M = file.size / 1024 / 1024 < 2;
 
@@ -350,19 +359,6 @@ export default {
         this.$message.error('上传封面图片大小不能超过 2MB!');
         return false;
       }
-
-      // 保存文件对象到专门的变量
-      this.coverFile = file;
-      
-      // 同时更新表单对象中的cover属性，用于显示预览
-      this.form.cover = file;
-      
-      // 生成预览URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.form.cover_url = e.target.result;
-      };
-      reader.readAsDataURL(file);
       
       // 阻止自动上传
       return false;
@@ -413,18 +409,23 @@ export default {
   border-top: 1px solid #ebeef5;
 }
 
-.upload-control-area {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-top: 20px;
+.avatar-uploader .el-upload {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
-
-.el-upload__tip {
-  line-height: 1.2;
-  padding-top: 8px;
-  color: #909399;
-  font-size: 12px;
+.avatar-uploader .el-upload:hover {
+  border-color: #409EFF;
+}
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 178px;
+  height: 178px;
+  line-height: 178px;
+  text-align: center;
 }
 
 .selected-count {

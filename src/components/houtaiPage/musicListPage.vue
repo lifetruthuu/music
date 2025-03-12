@@ -1,12 +1,12 @@
 <template>
-  <div>
-    <div style="text-align: left;">
-      <!--       搜索关键字-->
+  <div class="music-list-container">
+    <div class="page-header">
       <div class="search-box">
         <el-input
             v-model="searchKey"
-            placeholder="请输入搜索关键字"
+            placeholder="请输入歌曲名称搜索"
             clearable
+            prefix-icon="el-icon-search"
             @keyup.enter.native="handleSearch"
             @clear="handleSearch"
         >
@@ -17,90 +17,104 @@
           ></el-button>
         </el-input>
       </div>
-      <el-button type="primary" @click="onAddMusic({})">获取歌曲数据</el-button>
-      <el-button type="primary" @click="onAddGeci({})">获取歌词数据</el-button>
+      <el-button type="primary" @click="showInsertDialog" icon="el-icon-plus">添加歌曲</el-button>
     </div>
-    <el-table
-        :data="tableData"
-        border
-        style="width: 100%">
-      <el-table-column
-          prop="name"
-          label="歌曲名称"
-          width="200">
-      </el-table-column>
-      <el-table-column
-          prop="singerNames"
-          label="歌手"
-          width="180">
-      </el-table-column>
-      <el-table-column
-          label="封面"
-          width="280">
-        <template slot-scope="scope">
-          <img v-if="scope.row.musicPath" :src="fullImagePath( scope.row.musicPath)" alt="音乐封面" style="max-height: 100px; width: auto;text-align: center"/>
-        </template>
-      </el-table-column>
-      <el-table-column
-          label="音频"
-          width="350">
-        <template slot-scope="scope">
-          <audio :key="scope.row.audioPath" controls>
-            <source :src="getFullAudioPath(scope.row.audioPath)" type="audio/ogg">
-          </audio>
-        </template>
-      </el-table-column>
-      <el-table-column
-          label="操作"
-          min-width="10%">
-        <template slot-scope="scope">
-<!--          <el-button @click="onUpdateMusic(scope.row)" type="text" size="small">编辑</el-button>-->
-          <el-button @click="deleteItem(scope.row)" type="text" size="small">删除</el-button>
-          <el-button @click="addTitle(scope.row)" type="text" size="small">添加标签</el-button>
-          <el-button @click="getMusicFengmian(scope.row)" type="text" size="small">上传封面</el-button>
-        </template>
-      </el-table-column>
+    
+    <el-card shadow="hover" class="table-card">
+      <el-table
+          :data="tableData"
+          border
+          style="width: 100%"
+          v-loading="loading"
+          element-loading-text="正在加载数据..."
+          element-loading-spinner="el-icon-loading"
+          element-loading-background="rgba(255, 255, 255, 0.8)"
+          :header-cell-style="{background:'#f5f7fa', color:'#606266'}"
+          :row-class-name="tableRowClassName">
+        <el-table-column
+            prop="name"
+            label="歌曲名称"
+            width="200">
+        </el-table-column>
+        <el-table-column
+            prop="singerNames"
+            label="歌手"
+            width="180">
+        </el-table-column>
+        <el-table-column
+            label="封面"
+            width="180"
+            align="center">
+          <template slot-scope="scope">
+            <div class="image-container">
+              <img v-if="scope.row.musicPath" :src="fullImagePath(scope.row.musicPath)" alt="音乐封面" class="music-cover"/>
+              <div v-else class="no-cover">暂无封面</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column
+            label="音频"
+            align="center">
+          <template slot-scope="scope">
+            <audio :key="scope.row.audioPath" controls class="audio-player">
+              <source :src="getFullAudioPath(scope.row.audioPath)" type="audio/ogg">
+              您的浏览器不支持音频播放
+            </audio>
+          </template>
+        </el-table-column>
+        <el-table-column
+            label="操作"
+            width="200"
+            align="center">
+          <template slot-scope="scope">
+            <el-button @click="onUpdateMusic(scope.row)" type="primary" size="mini" icon="el-icon-edit">编辑</el-button>
+            <el-button @click="addTitle(scope.row)" type="success" size="mini" icon="el-icon-price-tag">标签</el-button>
+            <el-button @click="confirmDelete(scope.row)" type="danger" size="mini" icon="el-icon-delete">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
+      <div class="pagination-container">
+        <el-pagination
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page.sync="page.pageNum"
+            :page-sizes="[5, 10, 20, 50]"
+            :page-size="page.pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="page.total">
+        </el-pagination>
+      </div>
+    </el-card>
 
-    </el-table>
-
-    <el-pagination
-        style="text-align: right"
-        layout="prev, pager, next"
-        @current-change="handleCurrentChange"
-        :current-page.sync="page.pageNum"
-        :total="page.total">
-    </el-pagination>
-
-   <update-music-dialog v-if="musicDialogFormVisible"
+    <!-- 修改弹窗 -->
+    <update-music-manage v-if="musicDialogFormVisible"
                         :music="music"
                         :music-dialog-form-visible="musicDialogFormVisible"
-                        @onCloseMusicDialog="onCloseMusicDialog"> </update-music-dialog>
-    <insert-music-dialog  v-if="insertDialogFormVisible"
+                        @onCloseMusicDialog="onCloseMusicDialog"> </update-music-manage>
+    
+    <!-- 新增弹窗 -->                      
+    <insert-music-manage  v-if="insertDialogFormVisible"
                           :insert-dialog-form-visible="insertDialogFormVisible"
-                          @onCloseInsertMusicDialog="onCloseInsertMusicDialog"> </insert-music-dialog>
-   <update-music-title-dialog v-if="updateMusicTitleDialogVisible"
-   :update-music-title-dialog-visible="updateMusicTitleDialogVisible"
-                              :music-title="musicTitle"
-    @onCloseMusicTitleDialog="onCloseMusicTitleDialog"></update-music-title-dialog>
-    <music-fengmian-dialog v-if="musicFengmianDialogVisible" :music-fengmian-dialog-visible="musicFengmianDialogVisible"
-                          :music-id="musicId"  :music-path="musicPath"
-                           @onCloseMusicFengMian="onCloseMusicFengMian"> </music-fengmian-dialog>
+                          @onCloseInsertMusicDialog="onCloseInsertMusicDialog"> </insert-music-manage>
+    
+    <!-- 标签弹窗 -->                          
+    <update-music-title-dialog v-if="updateMusicTitleDialogVisible"
+      :update-music-title-dialog-visible="updateMusicTitleDialogVisible"
+      :music-title="musicTitle"
+      @onCloseMusicTitleDialog="onCloseMusicTitleDialog"></update-music-title-dialog>
 
   </div>
-
 </template>
 
 <script>
 import api from '@/api/axios.js';
-import updateMusicDialog from "@/components/houtaiPage/dialog/updateMusicDialog.vue";
-import InsertMusicDialog from "@/components/houtaiPage/dialog/insertMusicDialog.vue";
-import UpdateMusicTitleDialog  from "@/components/houtaiPage/dialog/updateMusicTitleDialog.vue";
-import MusicFengmianDialog  from "@/components/houtaiPage/dialog/musicFengmianDialog.vue";
-import axios from "axios";
+import updateMusicManage from "@/components/houtaiPage/dialog/updateMusicManage.vue";
+import insertMusicManage from "@/components/houtaiPage/dialog/insertMusicManage.vue";
+import updateMusicTitleDialog  from "@/components/houtaiPage/dialog/updateMusicTitleDialog.vue";
 export default {
   components: {
-    updateMusicDialog,InsertMusicDialog,UpdateMusicTitleDialog,MusicFengmianDialog,
+    updateMusicManage,insertMusicManage,updateMusicTitleDialog,
   },
   data() {
     return {
@@ -108,68 +122,47 @@ export default {
       musicDialogFormVisible: false,
       insertDialogFormVisible: false,
       updateMusicTitleDialogVisible: false,
-      musicFengmianDialogVisible: false,
       music: {},
       musicTitle: {},
       page: {
         pageNum: 1,
-        pageSize: 8,
+        pageSize: 10,
         total: 0,
       },
       searchKey: '', // 搜索关键字
-      musicId: '',
-      musicPath: ''
+      loading: false
     }
   },
   created() {
-    this.dialogFormVisible =false;
+    this.dialogFormVisible = false;
     this.initData();
   },
   methods: {
+    tableRowClassName({row, rowIndex}) {
+      return rowIndex % 2 === 0 ? 'even-row' : 'odd-row';
+    },
+    showInsertDialog() {
+      this.insertDialogFormVisible = true;
+    },
     handleSearch() {
+      this.page.pageNum = 1; // 搜索时重置为第一页
       this.initData();
     },
     handleCurrentChange(val) {
       this.page.pageNum = val;
       this.initData();
     },
-
-    onAddMusic() {
-
-      axios.post('http://localhost:8000/api/music/create/', {}, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }}).then(response => {
-        // this.$message.success('音乐上传成功');
-        // this.$emit("onCloseInsertMusicDialog")
-      })
-          .catch(error => {
-            this.$message.error('音乐上传失败');
-            console.error(error);
-          });
-
-      // this.insertDialogFormVisible = true;
-    },
-    onAddGeci(){
-      api.post('/api/music/getGeci/', {}).then(res => {
-
-      }).catch(err => {
-        console.error('请求失败:', err);
-
-      });
-    },
-
-    onCloseMusicFengMian(){
-      this.musicFengmianDialogVisible = false;
+    handleSizeChange(val) {
+      this.page.pageSize = val;
+      this.page.pageNum = 1; // 修改每页显示条数后重置为第一页
+      this.initData();
     },
     onCloseInsertMusicDialog(){
       this.insertDialogFormVisible = false;
       this.initData();
     },
-
-
     onUpdateMusic(row){
-      this.music = row;
+      this.music = JSON.parse(JSON.stringify(row)); // 深拷贝，避免直接修改表格数据
       this.musicDialogFormVisible = true;
     },
     onCloseMusicDialog() {
@@ -178,75 +171,148 @@ export default {
     },
     fullImagePath(path) {
       // 拼接完整的图片 URL
-      return `http://localhost:8000${path}`;
+      return path ? `http://localhost:8000${path}` : '';
     },
     getFullAudioPath(path) {
       // 拼接完整的音频文件 URL
-      return `http://localhost:8000${path}`;
+      return path ? `http://localhost:8000${path}` : '';
     },
-    deleteItem(row) {
-      api.post('/api/music/delete/',{
-        id:row.id
-      }).then(res => {
-        console.log('删除成功:', res.data);
-        this.initData();
-      }).catch(err => {
-        console.error('删除失败:', err);
+    confirmDelete(row) {
+      this.$confirm('确认删除该歌曲?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.deleteItem(row);
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消删除'
+        });          
       });
     },
-
+    deleteItem(row) {
+      this.loading = true;
+      api.post('/api/music/delete/',{
+        id: row.id
+      }).then(res => {
+        this.$message.success('删除成功');
+        this.initData();
+      }).catch(err => {
+        this.$message.error('删除失败: ' + err.message);
+        console.error('删除失败:', err);
+      }).finally(() => {
+        this.loading = false;
+      });
+    },
     addTitle(item){
-      this.musicTitle = item;
+      this.musicTitle = JSON.parse(JSON.stringify(item));
       this.updateMusicTitleDialogVisible = true;
     },
     onCloseMusicTitleDialog(){
       this.updateMusicTitleDialogVisible = false;
-    },
-
-    getMusicFengmian(row){
-      this.musicId = row.id;
-      this.musicPath = row.musicPath;
-      this.musicFengmianDialogVisible = true;
-    },
-    getFengmian(row){
-      api.post('/api/music/get_url/', {
-       mid:row.id
-      }).then(res => {
-
-      }).catch(err => {
-        console.error('请求失败:', err);
-
-      });
+      this.initData(); // 关闭后刷新
     },
     initData() {
+      this.loading = true;
       const queryStr = this.searchKey || '';
-      api.post('/api/music/list/', {
-        queryStr,
-        pageNum: this.page.pageNum,
-        pageSize: this.page.pageSize,
+      api.get('/api/music/all/', {
+        params: {
+          queryStr,
+          pageNum: this.page.pageNum,
+          pageSize: this.page.pageSize,
+        }
       }).then(res => {
-        this.tableData = res.list;
-        this.page.total = res.total;
+        if (res && res.list) {
+          this.tableData = res.list;
+          this.page.total = res.total;
+        } else {
+          this.$message.warning('返回的数据格式不正确');
+          this.tableData = [];
+          this.page.total = 0;
+        }
       }).catch(err => {
+        this.$message.error('获取数据失败: ' + err.message);
         console.error('请求失败:', err);
         this.tableData = [];
         this.page.total = 0;
+      }).finally(() => {
+        this.loading = false;
       });
     }
   }
 }
 </script>
 
-
 <style scoped>
+.music-list-container {
+  padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
 .search-box {
   display: inline-block;
-  max-width: 400px; /* 设置搜索框的最大宽度 */
-  width: 100%; /* 宽度自适应 */
+  width: 300px;
   margin-right: 10px;
-  margin-bottom: 10px;
   text-align: left;
 }
 
+.table-card {
+  margin-bottom: 20px;
+  border-radius: 8px;
+}
 
+.pagination-container {
+  margin-top: 20px;
+  text-align: right;
+}
+
+.image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+}
+
+.music-cover {
+  max-height: 90px;
+  max-width: 90px;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  object-fit: cover;
+}
+
+.no-cover {
+  width: 90px;
+  height: 90px;
+  background-color: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  border-radius: 6px;
+}
+
+.audio-player {
+  width: 250px;
+}
+
+/* 表格行样式 */
+::v-deep .even-row {
+  background-color: #fafafa;
+}
+
+::v-deep .odd-row {
+  background-color: #ffffff;
+}
+
+::v-deep .el-table td, ::v-deep .el-table th {
+  padding: 12px 0;
+}
 </style>

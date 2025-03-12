@@ -1,7 +1,7 @@
 <template>
   <el-dialog 
-    :title="form.id ? '编辑歌手信息' : '新增歌手信息'"
-    :visible.sync="updateSingerDialogVisible" 
+    title="新增歌手"
+    :visible.sync="insertSingerDialogVisible" 
     :before-close="onClose"
     width="700px"
     center
@@ -9,7 +9,7 @@
     <div class="dialog-body">
       <el-form 
         ref="singerForm" 
-        :model="form" 
+        :model="form"  
         :rules="rules"  
         label-width="100px"
         status-icon>
@@ -36,27 +36,19 @@
         </el-row>
         
         <el-form-item label="头像" prop="cover">
-          <div class="avatar-container">
-            <!-- 头像预览 -->
-            <div class="avatar-preview" v-if="form.cover_url">
-              <img :src="form.cover_url" alt="歌手头像" class="avatar-image"/>
-            </div>
-            
-            <!-- 上传控件 -->
-            <el-upload
-              class="avatar-uploader"
-              action=""
-              :auto-upload="false"
-              :on-change="handleCoverChange"
-              :file-list="fileList"
-              :limit="1"
-              :before-upload="beforeCoverUpload"
-              accept="image/jpeg,image/png,image/jpg,image/gif"
-              list-type="picture-card">
-              <i class="el-icon-plus"></i>
-              <div slot="tip" class="el-upload__tip">支持JPG、PNG格式，大小不超过2MB</div>
-            </el-upload>
-          </div>
+          <el-upload
+            class="avatar-uploader"
+            action=""
+            :auto-upload="false"
+            :on-change="handleCoverChange"
+            :file-list="fileList"
+            :limit="1"
+            :before-upload="beforeCoverUpload"
+            accept="image/jpeg,image/png,image/jpg,image/gif"
+            list-type="picture-card">
+            <i class="el-icon-plus"></i>
+            <div slot="tip" class="el-upload__tip">支持JPG、PNG格式，大小不超过2MB</div>
+          </el-upload>
         </el-form-item>
         
         <el-row :gutter="20">
@@ -201,7 +193,7 @@
     
     <div slot="footer" class="dialog-footer">
       <el-button @click="onClose">取消</el-button>
-      <el-button type="primary" @click="submitForm" :loading="submitting">保存</el-button>
+      <el-button type="primary" @click="submitForm" :loading="submitting">添加歌手</el-button>
     </div>
   </el-dialog>
 </template>
@@ -211,21 +203,15 @@ import api from "@/api/axios";
 
 export default {
   props: {
-    updateSingerDialogVisible: Boolean,
-    singer: {
-      type: Object,
-      default: () => ({})
-    }
+    insertSingerDialogVisible: Boolean,
   },
   data() {
     return {
       form: {
-        id: '',
         name: '',
         englishName: '',
         cover: null,
         cover_url: '',
-        urlPath: '',
         introduction: '',
         fansCount: 0,
         region: '',
@@ -248,6 +234,9 @@ export default {
           { required: true, message: '请输入歌手名称', trigger: 'blur' },
           { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
         ],
+        cover: [
+          { required: true, message: '请上传歌手头像', trigger: 'change' }
+        ],
         gender: [
           { required: true, message: '请选择性别', trigger: 'change' }
         ],
@@ -258,62 +247,40 @@ export default {
       coverFile: null
     };
   },
-  watch: {
-    singer: {
-      handler(newVal) {
-        if (newVal && newVal.id) {
-          this.initForm();
-        }
-      },
-      immediate: true,
-      deep: true
-    }
+  created() {
+    this.resetForm();
   },
   methods: {
-    initForm() {
-      if (this.singer && this.singer.id) {
-        // 将字符串类型的数字转为数字类型
-        const formatSinger = {...this.singer};
-        ['fansCount', 'albumsCount', 'songsCount', 'gender', 'status'].forEach(field => {
-          if (formatSinger[field] !== undefined && formatSinger[field] !== null) {
-            formatSinger[field] = Number(formatSinger[field]);
-          }
-        });
-        
-        this.form = {
-          id: formatSinger.id || '',
-          name: formatSinger.name || '',
-          englishName: formatSinger.englishName || '',
-          cover: null,
-          cover_url: this.imagePath(formatSinger),
-          urlPath: formatSinger.urlPath || '',
-          introduction: formatSinger.introduction || '',
-          fansCount: formatSinger.fansCount || 0,
-          region: formatSinger.region || '',
-          country: formatSinger.country || '',
-          birthday: formatSinger.birthday || '',
-          gender: formatSinger.gender || 2,
-          debutDate: formatSinger.debutDate || '',
-          musicStyle: formatSinger.musicStyle || '',
-          label: formatSinger.label || '',
-          representativeWorks: formatSinger.representativeWorks || '',
-          awards: formatSinger.awards || '',
-          albumsCount: formatSinger.albumsCount || 0,
-          songsCount: formatSinger.songsCount || 0,
-          status: formatSinger.status === 0 ? 0 : 1
-        };
-        
-        // 重置文件列表和上传文件
-        this.fileList = [];
-        this.coverFile = null;
+    resetForm() {
+      if (this.$refs.singerForm) {
+        this.$refs.singerForm.resetFields();
       }
-    },
-    imagePath(singer) {
-      if (!singer.urlPath) return '';
-      return singer.urlPath.startsWith('http') ? singer.urlPath : `http://localhost:8000${singer.urlPath}`;
+      this.form = {
+        name: '',
+        englishName: '',
+        cover: null,
+        cover_url: '',
+        introduction: '',
+        fansCount: 0,
+        region: '',
+        country: '',
+        birthday: '',
+        gender: 2, // 默认女性
+        debutDate: '',
+        musicStyle: '',
+        label: '',
+        representativeWorks: '',
+        awards: '',
+        albumsCount: 0,
+        songsCount: 0,
+        status: 1 // 默认启用
+      };
+      this.fileList = [];
+      this.coverFile = null;
     },
     onClose() {
-      this.$emit("onCloseMusicDialog");
+      this.resetForm();
+      this.$emit("onCloseInsertSingerDialog");
     },
     handleCoverChange(file) {
       const isJPG = file.raw.type === 'image/jpeg' || file.raw.type === 'image/png';
@@ -361,51 +328,35 @@ export default {
     submitForm() {
       this.$refs.singerForm.validate((valid) => {
         if (valid) {
+          if (!this.form.cover && this.fileList.length === 0) {
+            this.$message.warning('请上传歌手头像');
+            return false;
+          }
+          
           this.submitting = true;
           
           const formData = new FormData();
-          // 添加所有表单字段到formData
-          Object.keys(this.form).forEach(key => {
-            // 跳过cover和cover_url字段，它们需要特殊处理
-            if (key !== 'cover' && key !== 'cover_url') {
-              // 对于数字类型，确保传递为字符串
-              if (typeof this.form[key] === 'number') {
-                formData.append(key, String(this.form[key]));
-              } else if (this.form[key] !== null && this.form[key] !== undefined) {
-                formData.append(key, this.form[key]);
-              }
-            }
-          });
+          formData.append('name', this.form.name);
           
-          // 添加头像文件
+          // 添加封面文件
           if (this.coverFile) {
             formData.append('cover', this.coverFile);
-          } else if (this.form.urlPath) {
-            // 如果没有新上传的头像但有原始头像路径，则提交原始路径
-            formData.append('urlPath', this.form.urlPath);
           }
 
-          if (!formData.get('birthday')) {
-            formData.append('birthday', dayjs().format('YYYY-MM-DD'));
-          }
-
-          if (!formData.get('debutDate')) {
-            formData.append('debutDate', dayjs().format('YYYY-MM-DD'));
-          }
-          
           // 使用封装的api模块发送请求
-          api.post('/api/singer/update/', formData, {
+          api.post('/api/singer/insert/', formData, {
             headers: {
               'Content-Type': 'multipart/form-data'
             }
           }).then(response => {
-            this.$message.success('歌手信息更新成功');
+            this.$message.success('添加歌手成功');
             this.submitting = false;
-            this.$emit("onCloseMusicDialog");
+            this.resetForm();
+            this.$emit("onCloseInsertSingerDialog");
           }).catch(error => {
             this.submitting = false;
-            this.$message.error('更新失败: ' + (error.message || '未知错误'));
-            console.error('更新失败:', error);
+            this.$message.error('添加失败: ' + (error.message || '未知错误'));
+            console.error('添加失败:', error);
           });
         } else {
           this.$message.warning('请完善表单信息');
@@ -425,27 +376,6 @@ export default {
 .dialog-body {
   max-height: 60vh;
   overflow-y: auto;
-}
-
-.avatar-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.avatar-preview {
-  margin-bottom: 15px;
-  width: 120px;
-  height: 120px;
-  border-radius: 60px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-}
-
-.avatar-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .avatar-uploader .el-upload {
