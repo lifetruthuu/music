@@ -1,6 +1,6 @@
 <template>
   <main class="yonghu-container">
-    <!-- 轮播图 - 100%宽度 -->
+    <!-- 轮播图 - 95%宽度 -->
     <div class="carousel-section">
       <el-carousel height="400px" :interval="4000" type="card" indicator-position="outside">
         <el-carousel-item v-for="(item,index) in images" :key="index">
@@ -13,7 +13,7 @@
       </el-carousel>
     </div>
 
-    <!-- 热门歌曲 - 70%宽度 -->
+    <!-- 热门歌曲 - 65%宽度 -->
     <div class="content-section">
       <h3 class="section-title">热门歌曲</h3>
       <div class="playlist-grid" v-loading="loadingHotSongs" element-loading-text="加载热门歌曲中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <!-- 最近播放的歌曲 - 70%宽度 -->
+    <!-- 最近播放的歌曲 - 65%宽度 -->
     <div class="content-section">
       <h3 class="section-title">最近播放</h3>
       <div class="playlist-grid" v-loading="loadingRecentPlays" element-loading-text="加载最近播放中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
@@ -88,7 +88,7 @@
       </div>
     </div>
 
-    <!-- 歌单网格 - 70%宽度 -->
+    <!-- 歌单网格 - 65%宽度 -->
     <div class="content-section">
       <h3 class="section-title">歌单</h3>
       <div class="playlist-grid" v-loading="loadingGedans" element-loading-text="加载歌单中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
@@ -399,10 +399,10 @@ export default {
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
 }
 
-/* 轮播图区域 - 100%宽度 */
+/* 轮播图区域 - 95%宽度 */
 .carousel-section {
-  width: 100%;
-  margin-bottom: 30px;
+  width: 95%;
+  margin: 0 auto 30px;
 }
 
 .carousel-image {
@@ -411,9 +411,9 @@ export default {
   object-fit: cover;
 }
 
-/* 内容区域 - 70%宽度 */
+/* 内容区域 - 65%宽度 */
 .content-section {
-  width: 70%;
+  width: 65%;
   margin: 0 auto 40px;
   background-color: #fff;
   padding: 25px;
@@ -780,4 +780,36 @@ export default {
 .el-col:nth-child(4) .gedan-card { animation-delay: 0.2s; }
 .el-col:nth-child(5) .gedan-card { animation-delay: 0.25s; }
 .el-col:nth-child(6) .gedan-card { animation-delay: 0.3s; }
+
+/* 音乐卡片布局优化 */
+.el-row {
+  width: 100%;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+@media (max-width: 1400px) {
+  /* 在较宽的屏幕上也减少列数 */
+  .el-col-lg-4 {
+    width: 33.33333%;
+  }
+}
+
+@media (max-width: 992px) {
+  /* 中等屏幕尺寸时的宽度调整 */
+  .content-section {
+    width: 75%;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 小屏幕时的宽度调整 */
+  .carousel-section {
+    width: 100%;
+  }
+  
+  .content-section {
+    width: 90%;
+  }
+}
 </style>

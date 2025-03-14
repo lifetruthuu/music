@@ -497,7 +497,6 @@ export default {
   },
 
   created() {
-
     
     // 先获取用户心情和活动，再初始化数据
     Promise.all([this.getUserMood(), this.getUserActivity()])
@@ -1253,7 +1252,7 @@ export default {
   overflow: hidden;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   margin-bottom: 30px;
-  transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+  transition: all 1s cubic-bezier(0.19, 1, 0.22, 1);
   color: white;
   position: relative;
   will-change: transform, box-shadow;
@@ -1989,7 +1988,7 @@ export default {
 
 /* 显示/隐藏动画 */
 .fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   transform-origin: top center;
   pointer-events: none;
 }
