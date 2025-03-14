@@ -251,8 +251,11 @@ export default {
             formData.append('avatar', this.avatarFile);
           }
           
+          // 根据是否有用户ID决定是创建新用户还是更新现有用户
+          const apiUrl = userId ? '/api/user/update/' : '/api/user/insert/';
+          
           // 发送请求
-          http.post('/api/user/update/', formData, {
+          http.post(apiUrl, formData, {
             headers: {
               'Content-Type': 'multipart/form-data'
             }
@@ -261,23 +264,28 @@ export default {
             
             // 检查响应状态
             if (res.status === 'success') {
+              // 如果是创建用户，更新ID
+              if (!userId && res.userId) {
+                this.ruleForm.id = res.userId;
+              }
+              
               // 更新头像URL（如果有）
               if (res.avatarUrl) {
                 this.ruleForm.avatar_url = res.avatarUrl;
               }
               
               this.$message({
-                message: '保存成功',
+                message: userId ? '保存成功' : '创建成功',
                 type: 'success',
                 duration: 2000
               });
               this.$emit('onCloseUserDialog', false);
             } else {
-              this.$message.error(res.message || '保存失败');
+              this.$message.error(res.message || '操作失败');
             }
           }).catch(err => {
             this.loading = false;
-            this.$message.error('保存失败，请稍后重试');
+            this.$message.error('操作失败，请稍后重试');
             console.error('请求失败:', err);
           });
         } else {

@@ -23,7 +23,6 @@ const store = new Vuex.Store({
       // 保存当前的心情状态和活动状态
       const currentMood = currentUser?.mood
       const currentActivity = currentUser?.activity
-      console.log('Vuex: 更新用户前的心情:', currentMood, '活动:', currentActivity)
       
 
       // 创建新的用户对象，合并传入的数据
@@ -37,16 +36,13 @@ const store = new Vuex.Store({
       // 如果新对象没有心情字段但原对象有，则保留原有的心情字段
       if (!updatedUser.mood && currentMood) {
         updatedUser.mood = currentMood
-        console.log('Vuex: 保留原有心情:', currentMood)
       }
       
       // 如果新对象没有活动字段但原对象有，则保留原有的活动字段
       if (!updatedUser.activity && currentActivity) {
         updatedUser.activity = currentActivity
-        console.log('Vuex: 保留原有活动:', currentActivity)
       }
       
-      console.log('Vuex: 最终更新的用户状态 - 心情:', updatedUser.mood, '活动:', updatedUser.activity)
       
       // 更新状态和localStorage
       state.user = updatedUser

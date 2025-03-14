@@ -2,6 +2,11 @@
   <div class="recommendation-container">
     <h1 class="page-title">为您推荐</h1>
     
+    <!-- 添加偏好标签设置按钮 -->
+    <div class="preference-options">
+      <el-button type="primary" icon="el-icon-star-on" @click="openTagDialog">设置偏好标签</el-button>
+    </div>
+    
     <!-- 如果有推荐内容 -->
     <div v-if="recommendations.length" class="recommendations-grid">
       <div v-for="(song, index) in recommendations" :key="song.id" class="recommendation-card">
@@ -50,17 +55,11 @@
       <p>正在为您生成个性化推荐...</p>
     </div>
     
-    <!-- 分页控件 -->
-    <div v-if="recommendations.length" class="pagination-container">
-      <el-pagination
-        background
-        layout="prev, pager, next"
-        :total="totalRecommendations"
-        :page-size="pageSize"
-        :current-page.sync="currentPage"
-        @current-change="handlePageChange"
-      ></el-pagination>
-    </div>
+    <!-- 偏好标签设置弹窗 -->
+    <TitleSelect 
+      :titleDialog="showTagDialog" 
+      @onclose="closeTagDialog"
+    />
   </div>
 </template>
 
@@ -68,18 +67,20 @@
 import api from "@/api/axios";
 import BehaviorService from "@/services/BehaviorService";
 import store from "@/store";
-
+import TitleSelect from '@/components/dialog/titleSelect.vue';
 
 export default {
   name: 'TuijianPage',
+  components: {
+    TitleSelect
+  },
   data() {
     return {
       recommendations: [],
       totalRecommendations: 0,
-      currentPage: 1,
-      pageSize: 12,
+      pageSize: 8, // 增加默认展示数量
       loading: false,
-      user: null,
+      user: '',
       currentMood: '', // 用户当前心情
       currentActivity: '', // 用户当前活动
       availableMoods: ['none', 'calm', 'happy', 'sad', 'angry', 'surprised', 'tired'], // 更新包括"无心情"选项
@@ -92,7 +93,8 @@ export default {
         'surprised': '惊讶',
         'tired': '疲惫'
       },
-      availableActivities: ['studying', 'working', 'exercising', 'relaxing', 'commuting', ''] // 可选活动
+      availableActivities: ['studying', 'working', 'exercising', 'relaxing', 'commuting', ''], // 可选活动
+      showTagDialog: false // 控制偏好标签弹窗显示
     }
   },
   computed: {
@@ -119,22 +121,18 @@ export default {
         const oldActivity = oldUser?.activity;
         
         if (newMood !== oldMood) {
-          console.log('tuijianPage: 监听到用户心情变化:', oldMood, '->', newMood);
           
           // 更新组件的当前心情
           if (newMood && newMood !== this.currentMood) {
             this.currentMood = newMood;
-            console.log('tuijianPage: 同步组件心情:', this.currentMood);
           }
         }
         
         if (newActivity !== oldActivity) {
-          console.log('tuijianPage: 监听到用户活动变化:', oldActivity, '->', newActivity);
           
           // 更新组件的当前活动
           if (newActivity !== undefined && newActivity !== this.currentActivity) {
             this.currentActivity = newActivity;
-            console.log('tuijianPage: 同步组件活动:', this.currentActivity);
           }
         }
         
@@ -148,16 +146,11 @@ export default {
     }
   },
   created() {
-    console.log('tuijianPage: created生命周期钩子执行');
-    
     const userString = localStorage.getItem('user');
     this.user = JSON.parse(userString);
-    console.log('tuijianPage: 从localStorage获取到的用户：', this.user);
-    
     // 先确保获取到用户心情和活动后再加载推荐
     Promise.all([this.getUserMood(), this.getUserActivity()])
       .then(() => {
-        console.log('tuijianPage: 心情和活动获取完成，准备加载推荐');
         this.loadRecommendations();
       })
       .catch(err => {
@@ -174,13 +167,24 @@ export default {
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   },
   methods: {
+    // 打开标签设置对话框
+    openTagDialog() {
+      this.showTagDialog = true;
+    },
+    
+    // 关闭标签设置对话框
+    closeTagDialog() {
+      this.showTagDialog = false;
+      // 关闭后刷新推荐
+      this.loadRecommendations();
+    },
+    
     // 获取用户心情
     getUserMood() {
       if (!this.user || !this.user.id) {
         return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
       }
       
-      console.log('tuijianPage: 正在获取用户心情...');
       
       // 返回API调用的Promise
       return api.get('/api/user/get_mood/', {
@@ -188,13 +192,11 @@ export default {
           userId: this.user.id
         }
       }).then(res => {
-        console.log('tuijianPage: API返回的心情数据:', res);
         
         if (res.status === 'success') {
           // 设置当前心情，确保有一个默认值
           const mood = res.mood || 'none';
           
-          console.log('tuijianPage: 更新心情为:', mood, '之前心情为:', this.currentMood);
           
           // 更新当前心情
           this.currentMood = mood;
@@ -206,12 +208,10 @@ export default {
             
             // 使用全局的store更新用户状态
             return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
-              console.log('tuijianPage: Vuex状态已更新，当前心情:', mood, '从user对象读取:', this.user.mood);
               
               // 强制重新计算和重新渲染
               this.$nextTick(() => {
                 this.$forceUpdate();
-                console.log('tuijianPage: UI已强制更新');
               });
             });
           }
@@ -229,7 +229,6 @@ export default {
         return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
       }
       
-      console.log('tuijianPage: 正在获取用户活动...');
       
       // 返回API调用的Promise
       return api.get('/api/user/get_activity/', {
@@ -237,13 +236,11 @@ export default {
           userId: this.user.id
         }
       }).then(res => {
-        console.log('tuijianPage: API返回的活动数据:', res);
         
         if (res.status === 'success') {
           // 设置当前活动，确保有一个默认值
           const activity = res.activity || '';
           
-          console.log('tuijianPage: 更新活动为:', activity, '之前活动为:', this.currentActivity);
           
           // 更新当前活动
           this.currentActivity = activity;
@@ -255,12 +252,10 @@ export default {
             
             // 使用全局的store更新用户状态
             return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
-              console.log('tuijianPage: Vuex状态已更新，当前活动:', activity, '从user对象读取:', this.user.activity);
               
               // 强制重新计算和重新渲染
               this.$nextTick(() => {
                 this.$forceUpdate();
-                console.log('tuijianPage: UI已强制更新');
               });
             });
           }
@@ -279,34 +274,25 @@ export default {
       // 记录当前心情和活动，避免API调用过程中丢失
       const currentMood = this.currentMood || this.user?.mood || 'none';
       const currentActivity = this.currentActivity || this.user?.activity || '';
-      console.log('tuijianPage: loadRecommendations 前的心情:', currentMood, '活动:', currentActivity);
       
       // 获取当前上下文
       const context = this.userContext;
       
       api.post('/api/music/tuijianSongs/', {
         ...context,
-        pageNum: this.currentPage,
         pageSize: this.pageSize
       })
       .then(res => {
         // 确保心情和活动不会在API响应后丢失
-        console.log('tuijianPage: loadRecommendations API返回后，状态检查:', 
-          '当前组件心情:', this.currentMood,
-          '当前组件活动:', this.currentActivity,
-          'Vuex心情:', this.user?.mood,
-          'Vuex活动:', this.user?.activity);
         
         // 如果API响应后心情丢失，恢复之前的心情
         if (!this.currentMood || this.currentMood === '') {
           this.currentMood = currentMood;
-          console.log('tuijianPage: 恢复之前的心情:', this.currentMood);
         }
         
         // 如果API响应后活动丢失，恢复之前的活动
         if (!this.currentActivity && currentActivity) {
           this.currentActivity = currentActivity;
-          console.log('tuijianPage: 恢复之前的活动:', this.currentActivity);
         }
         
         // 同步更新用户对象
@@ -317,7 +303,6 @@ export default {
           if (currentActivity) updatedUser.activity = currentActivity;
           
           store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
-            console.log('tuijianPage: 已将心情和活动同步到Vuex:', currentMood, currentActivity);
             this.$forceUpdate();
           });
         }
@@ -356,49 +341,27 @@ export default {
       return path ? `http://localhost:8000${path}` : require('@/assets/1740221844832.jpg');
     },
     
-    // 处理页面变化
-    handlePageChange(page) {
-      this.currentPage = page;
-      this.loadRecommendations();
-    },
-    
     // 播放推荐歌曲
     playRecommendation(song, index) {
       // 记录推荐点击反馈
       BehaviorService.recordFeedback(song, 'clicked', index, this.user.id);
-      
-      // 触发事件告知父组件播放此歌曲
-      this.$emit('onGoToSongDetail', song.id);
+      // 触发事件跳转至页面
+      this.$emit('onGoToSongDetailFromTuijian', song.id, this.user.id);
     },
     
     // 喜欢歌曲
     likeSong(song, index) {
       BehaviorService.recordFeedback(song, 'liked', index, this.user.id);
-      
-      // 添加到收藏
-      api.post('/api/music/favorites/', {
-        musicId: song.id,
-        userId: this.user.id
-      }).then(() => {
-        this.$message({
-          type: 'success',
-          message: '已添加到我喜欢的音乐',
-          duration: 1500
-        });
-      }).catch(err => {
-        console.error('添加收藏失败', err);
+      this.$message({
+        type: 'info',
+        message: '感谢您的反馈，我们将根据您的喜好为您推荐更多歌曲',
+        duration: 1500
       });
       
       // 如果移除后列表为空，加载更多推荐
       if (this.recommendations.length === 0) {
         this.loadRecommendations();
       }
-    },
-    
-    // 设置心情
-    setMood(mood) {
-      this.currentMood = mood;
-      this.loadRecommendations();
     },
     
     // 不喜欢歌曲
@@ -437,10 +400,6 @@ export default {
       }
     },
     
-    // 获取心情显示文本
-    getMoodLabel(mood) {
-      return this.moodLabels[mood] || '平静';
-    }
   }
 }
 </script>
@@ -454,9 +413,16 @@ export default {
 
 .page-title {
   font-size: 28px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   color: #333;
   text-align: center;
+}
+
+/* 偏好设置按钮样式 */
+.preference-options {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
 }
 
 .recommendations-grid {
@@ -572,12 +538,6 @@ export default {
 .no-recommendations p {
   font-size: 18px;
   color: #888;
-}
-
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  margin-top: 30px;
 }
 
 /* 响应式调整 */

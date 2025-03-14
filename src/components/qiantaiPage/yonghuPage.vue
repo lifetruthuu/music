@@ -13,56 +13,21 @@
       </el-carousel>
     </div>
 
-    <!-- 歌单网格 - 70%宽度 -->
+    <!-- 热门歌曲 - 70%宽度 -->
     <div class="content-section">
-      <h3 class="section-title">歌单</h3>
-      <div class="playlist-grid" v-loading="loadingGedans" element-loading-text="加载歌单中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
-        <div v-if="loadingGedans" class="loading-skeleton">
-          <div class="skeleton-card" v-for="index in 6" :key="'gedan-' + index"></div>
+      <h3 class="section-title">热门歌曲</h3>
+      <div class="playlist-grid" v-loading="loadingHotSongs" element-loading-text="加载热门歌曲中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
+        <div v-if="loadingHotSongs" class="loading-skeleton">
+          <div class="skeleton-card" v-for="index in 6" :key="'hot-' + index"></div>
         </div>
         <transition-group 
           tag="el-row" 
           name="item-fade" 
-          :gutter="20" 
+          :gutter="30" 
           v-else
         >
           <el-col
-              v-for="(item, index) in tableData"
-              :key="item.id || index"
-              :xs="12"
-              :sm="6"
-              :md="6"
-              :lg="4"
-          >
-            <el-card class="music-card" @click.native="onGeDanDetail(item, index)">
-              <img
-                  :src="fullImagePath(item.urlPath)"
-                  class="card-image"
-              />
-              <div class="card-footer">
-                <h3 class="card-title">{{ item.name }}</h3>
-              </div>
-            </el-card>
-          </el-col>
-        </transition-group>
-      </div>
-    </div>
-
-    <!-- 推荐歌曲 - 70%宽度 -->
-    <div class="content-section">
-      <h3 class="section-title">推荐歌曲</h3>
-      <div class="playlist-grid" v-loading="loadingSongs" element-loading-text="加载推荐歌曲中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
-        <div v-if="loadingSongs" class="loading-skeleton">
-          <div class="skeleton-card" v-for="index in 6" :key="'song-' + index"></div>
-        </div>
-        <transition-group 
-          tag="el-row" 
-          name="item-fade" 
-          :gutter="20" 
-          v-else
-        >
-          <el-col
-              v-for="(item, index) in songs"
+              v-for="(item, index) in hotSongs"
               :key="item.id || index"
               :xs="12"
               :sm="6"
@@ -76,6 +41,10 @@
               />
               <div class="card-footer">
                 <h3 class="card-title">{{ item.name }}</h3>
+                <p class="card-singer">{{ item.singerNames }}</p>
+                <div class="card-hot" v-if="item.hot">
+                  <i class="el-icon-hot-water"></i> 热门
+                </div>
               </div>
             </el-card>
           </el-col>
@@ -83,15 +52,94 @@
       </div>
     </div>
 
-    <title-select v-if="titleDialog" :title-dialog="titleDialog" @onclose="onclose"></title-select>
+    <!-- 最近播放的歌曲 - 70%宽度 -->
+    <div class="content-section">
+      <h3 class="section-title">最近播放</h3>
+      <div class="playlist-grid" v-loading="loadingRecentPlays" element-loading-text="加载最近播放中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
+        <div v-if="loadingRecentPlays" class="loading-skeleton">
+          <div class="skeleton-card" v-for="index in 6" :key="'recent-' + index"></div>
+        </div>
+        <transition-group 
+          tag="el-row" 
+          name="item-fade" 
+          :gutter="30" 
+          v-else
+        >
+          <el-col
+              v-for="(item, index) in recentPlays"
+              :key="item.id || index"
+              :xs="12"
+              :sm="6"
+              :md="6"
+              :lg="4"
+          >
+            <el-card class="music-card" @click.native="onAudio(item, index)">
+              <img
+                  :src="imagePath(item)"
+                  class="card-image"
+              />
+              <div class="card-footer">
+                <h3 class="card-title">{{ item.name }}</h3>
+                <p class="card-singer">{{ item.singerNames }}</p>
+              </div>
+            </el-card>
+          </el-col>
+        </transition-group>
+      </div>
+    </div>
+
+    <!-- 歌单网格 - 70%宽度 -->
+    <div class="content-section">
+      <h3 class="section-title">歌单</h3>
+      <div class="playlist-grid" v-loading="loadingGedans" element-loading-text="加载歌单中..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.8)">
+        <div v-if="loadingGedans" class="loading-skeleton">
+          <div class="skeleton-card" v-for="index in 6" :key="'gedan-' + index"></div>
+        </div>
+        <transition-group 
+          tag="el-row" 
+          name="item-fade" 
+          :gutter="30" 
+          v-else
+        >
+          <el-col
+              v-for="(item, index) in tableData"
+              :key="item.id || index"
+              :xs="12"
+              :sm="6"
+              :md="6"
+              :lg="4"
+          >
+            <div class="gedan-card" @click="onGeDanDetail(item, index)">
+              <div class="gedan-cover-container">
+                <img
+                    :src="fullImagePath(item.urlPath)"
+                    class="gedan-cover-image"
+                    alt="歌单封面"
+                />
+                <div class="gedan-overlay">
+                  <i class="el-icon-video-play gedan-play-icon"></i>
+                </div>
+                <div class="gedan-info-badge">
+                  <i class="el-icon-headset"></i>
+                  <span>{{ Math.floor(Math.random() * 10000) }}</span>
+                </div>
+              </div>
+              <div class="gedan-info">
+                <h3 class="gedan-title">{{ item.name }}</h3>
+                <p class="gedan-desc">精选歌单，发现好音乐</p>
+              </div>
+            </div>
+          </el-col>
+        </transition-group>
+      </div>
+    </div>
+
   </main>
 </template>
 <script>
 import api from "@/api/axios";
-import TitleSelect from "@/components/dialog/titleSelect.vue";
 
 export default {
-  components: {TitleSelect},
   data() {
     return {
       progress: 0,
@@ -124,12 +172,14 @@ export default {
       currentAudio: null,
       titleDialog: false,
       userId: '',
-      songs:[],
       showPlayer: false,
       mouseY: 0,
       windowHeight: 0,
       loadingGedans: false, // 加载歌单状态
-      loadingSongs: false  // 加载歌曲状态
+      loadingRecentPlays: false, // 加载最近播放状态
+      loadingHotSongs: false, // 加载热门歌曲状态
+      recentPlays: [], // 最近播放列表
+      hotSongs: [], // 热门歌曲列表
     }
   },
   computed: {
@@ -150,14 +200,16 @@ export default {
       if (!this.currentIndex) {
         this.currentIndex = 0;
       }
-      let item = this.songs[this.currentIndex + 1];
+      let collection = this.currentCollection || this.recentPlays;
+      let item = collection[this.currentIndex + 1];
       this.onAudio(item, this.currentIndex + 1)
     },
     previousMusic() {
       if (!this.currentIndex) {
         this.currentIndex = 0;
       }
-      let item = this.songs[this.currentIndex - 1];
+      let collection = this.currentCollection || this.recentPlays;
+      let item = collection[this.currentIndex - 1];
       this.onAudio(item, this.currentIndex - 1)
     },
     // 切换收藏状态
@@ -175,12 +227,10 @@ export default {
       });
     },
 
-
     fullImagePath(path) {
       // 拼接完整的图片 URL
       return `http://localhost:8000${path}`;
     },
-
 
     onGeDanDetail(item, index) {
       this.$emit("onMusicListByGedan",{geDanId:item.id,index:0})
@@ -190,6 +240,8 @@ export default {
       this.currentIndex = index;
       this.currentAudio = item; // 保存当前播放的音频对象
       this.showPlayer = true;   // 确保播放器显示
+      this.currentCollection = gedan ? this.gedanSongs : 
+                              (index >= this.recentPlays.length ? this.hotSongs : this.recentPlays);
       
       // 重置播放状态
       this.currentAudioPath = '';
@@ -204,6 +256,7 @@ export default {
         this.currentMusicId = item.id;
         this.currentAudioPath = item.audioPath ? `http://localhost:8000${item.audioPath}` : '../../../src/assets/img.png';
         this.currentAudioName = item.name;
+        this.currentAudioSinger = item.singerNames || '';
 
         // 获取音频元素
         let audio = this.$refs.audioPlayer;
@@ -235,8 +288,11 @@ export default {
       this.progress = (this.$refs.audioPlayer.currentTime / this.$refs.audioPlayer.duration) * 100;
     },
     handleAudioEnded() {
-      let item = this.songs[this.currentIndex + 1];
-      this.onAudio(item, this.currentIndex + 1)
+      let collection = this.currentCollection || this.recentPlays;
+      if (this.currentIndex < collection.length - 1) {
+        let item = collection[this.currentIndex + 1];
+        this.onAudio(item, this.currentIndex + 1)
+      }
     },
     initData() {
       const queryStr = this.searchKey || '';
@@ -253,48 +309,50 @@ export default {
         this.loadingGedans = false; // 加载完成，隐藏动画
       });
     },
-    queryTuijianSongs(){
-      this.loadingSongs = true; // 开始加载推荐歌曲，显示动画
-      api.post('/api/music/tuijianSongs/', {
-        userId: this.userId,
-        pageNum: 1,
-        pageSize: 6,
-      }).then(res => {
-        this.songs = res.list
+    getRecentPlays() {
+      this.loadingRecentPlays = true; // 开始加载最近播放，显示动画
+      api.get(`/api/music/recent_plays/?userId=${this.userId}&limit=6`).then(res => {
+        if (res.status === 'success' && res.list) {
+          this.recentPlays = res.list;
+        } else {
+          this.recentPlays = [];
+        }
       }).catch(err => {
-        console.error('请求失败:', err);
+        console.error('获取最近播放失败:', err);
+        this.recentPlays = [];
       }).finally(() => {
-        this.loadingSongs = false; // 加载完成，隐藏动画
+        this.loadingRecentPlays = false; // 加载完成，隐藏动画
+      });
+    },
+    getHotSongs() {
+      this.loadingHotSongs = true; // 开始加载热门歌曲，显示动画
+      api.get(`/api/music/hot_songs/?userId=${this.userId}&limit=6`).then(res => {
+        if (res.status === 'success' && res.list) {
+          this.hotSongs = res.list;
+        } else {
+          this.hotSongs = [];
+        }
+      }).catch(err => {
+        console.error('获取热门歌曲失败:', err);
+        this.hotSongs = [];
+      }).finally(() => {
+        this.loadingHotSongs = false; // 加载完成，隐藏动画
       });
     },
     queryUserFavitory() {
       api.post('/api/favorites/list/', {
         userId: this.userId,
       }).then(res => {
-
         this.favotiries = res.list.map(item => item.musicId);
       }).catch(err => {
         console.error('请求失败:', err);
       });
     },
-    queryIsShowTitle(){
-      this.titleDialog = false;
-      api.post('/api/user/selectTitle/', {
-        userId: this.userId,
-      }).then(res => {
-        if(res.list && res.list.length == 0){
-          this.titleDialog = true;
-        }
-      }).catch(err => {
-        console.error('请求失败:', err);
-      });
-
-    },
-
     beforData(){
       //查询歌单
       this.initData();
-      this.queryTuijianSongs();
+      this.getRecentPlays();
+      this.getHotSongs();
       this.queryUserFavitory();
     },
     handleMouseMove(event) {
@@ -312,7 +370,6 @@ export default {
     const user = JSON.parse(userString);
     this.username = user.username;
     this.userId = user.id;
-    this.queryIsShowTitle();
     this.beforData();
     // 添加鼠标移动监听
     window.addEventListener('mousemove', this.handleMouseMove);
@@ -357,9 +414,9 @@ export default {
 /* 内容区域 - 70%宽度 */
 .content-section {
   width: 70%;
-  margin: 0 auto 30px;
+  margin: 0 auto 40px;
   background-color: #fff;
-  padding: 20px;
+  padding: 25px;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
@@ -390,11 +447,12 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .music-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 .card-image {
@@ -418,6 +476,7 @@ export default {
   justify-content: center;
   height: 110px; /* 固定卡片底部高度，与gedanPage保持一致 */
   box-sizing: border-box; /* 确保padding不会增加元素高度 */
+  position: relative; /* 为热门标签准备 */
 }
 
 .card-title {
@@ -433,15 +492,42 @@ export default {
   width: auto !important;
   line-height: 1.4 !important; /* 控制行高 */
   display: -webkit-box !important; /* 使用box布局实现多行文本 */
-  -webkit-line-clamp: 3 !important; /* 最多显示3行 */
+  -webkit-line-clamp: 2 !important; /* 最多显示2行 */
   -webkit-box-orient: vertical !important; /* 垂直方向排列 */
-  max-height: 4.2em !important; /* 3行文本的最大高度 (1.4 * 3) */
+  max-height: 2.8em !important; /* 2行文本的最大高度 (1.4 * 2) */
+}
+
+.card-singer {
+  margin: 5px 0 0 0;
+  font-size: 14px;
+  color: #909399;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-hot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #ff4d4f;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-hot i {
+  font-size: 14px;
 }
 
 /* 修复卡片大小问题 */
 .el-col {
   display: flex;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
 }
 
 /* 响应式调整 */
@@ -547,4 +633,151 @@ export default {
     transform: translateY(0);
   }
 }
+
+/* 歌单卡片特殊样式 */
+.gedan-card {
+  position: relative;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background-color: #fff;
+  animation: cardFadeIn 0.6s ease forwards;
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+.playlist-grid:not(.el-loading-parent--relative) .gedan-card {
+  animation-play-state: running;
+}
+
+.gedan-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
+
+.gedan-cover-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%; /* 1:1 宽高比例 */
+  overflow: hidden;
+}
+
+.gedan-cover-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.gedan-card:hover .gedan-cover-image {
+  transform: scale(1.08);
+}
+
+.gedan-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 60%);
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+.gedan-card:hover .gedan-overlay {
+  opacity: 1;
+}
+
+.gedan-play-icon {
+  font-size: 48px;
+  color: white;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  transform: scale(0.8);
+  transition: transform 0.3s ease;
+}
+
+.gedan-card:hover .gedan-play-icon {
+  transform: scale(1);
+}
+
+.gedan-info-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+
+.gedan-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.gedan-title {
+  margin: 0 0 5px 0 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #303133 !important;
+  line-height: 1.4 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-height: 2.8em !important;
+}
+
+.gedan-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #909399;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .gedan-info-badge {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  
+  .gedan-title {
+    font-size: 14px !important;
+  }
+  
+  .gedan-desc {
+    font-size: 12px;
+  }
+}
+
+/* 为每个歌单卡片添加交错动画延迟 */
+.el-col:nth-child(1) .gedan-card { animation-delay: 0.05s; }
+.el-col:nth-child(2) .gedan-card { animation-delay: 0.1s; }
+.el-col:nth-child(3) .gedan-card { animation-delay: 0.15s; }
+.el-col:nth-child(4) .gedan-card { animation-delay: 0.2s; }
+.el-col:nth-child(5) .gedan-card { animation-delay: 0.25s; }
+.el-col:nth-child(6) .gedan-card { animation-delay: 0.3s; }
 </style>

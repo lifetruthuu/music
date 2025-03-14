@@ -79,7 +79,7 @@
                   :label="item.name"
                   :value="item.id">
                   <span style="float: left">{{ item.name }}</span>
-                  <span style="float: right; color: #8492a6; font-size: 13px">{{ item.singer_name || '未知歌手' }}</span>
+                  <span style="float: right; color: #8492a6; font-size: 13px">{{ item.singerName || '未知歌手' }}</span>
                 </el-option>
               </el-select>
               
@@ -242,10 +242,7 @@ export default {
     },
     querySongs() {
       this.loading = true;
-      api.post('/api/music/all/', {
-        pageNum: 1,
-        pageSize: 10000,
-      }).then(res => {
+      api.get('/api/gedan/musicSelect/', {}).then(res => {
         this.songs = res.list;
         this.filteredSongs = [...this.songs]; // 初始化过滤后的歌曲列表
         this.loading = false;
@@ -289,7 +286,7 @@ export default {
           .map(song => ({
             id: song.id,
             name: song.name,
-            singer: song.singer_name || '未知歌手'
+            singer: song.singerName || '未知歌手'
           }));
       }
     },

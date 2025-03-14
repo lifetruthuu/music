@@ -140,6 +140,10 @@ export default {
     fromMyMusic: {
       type: Boolean,
       default: false
+    },
+    fromTuijian: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -186,7 +190,6 @@ export default {
     userId: {
       immediate: true,
       handler(newUserId) {
-        console.log("[songDetailPage] userId prop变化:", newUserId);
         if (newUserId) {
           const userString = localStorage.getItem('user');
           let parsedUser = null;
@@ -208,7 +211,6 @@ export default {
             this.user = { id: newUserId };
           }
           
-          console.log("[songDetailPage] 更新用户对象:", this.user);
           
           // 如果已经加载了歌曲，可能需要重新获取详情以更新喜欢状态等
           if (this.song && this.song.id) {
@@ -232,8 +234,6 @@ export default {
     }
   },
   created() {
-    console.log("[songDetailPage] created钩子执行, props userId:", this.userId);
-    
     const userString = localStorage.getItem('user');
     let parsedUser = null;
     
@@ -241,7 +241,6 @@ export default {
     if (userString) {
       try {
         parsedUser = JSON.parse(userString);
-        console.log("[songDetailPage] 从localStorage解析到用户:", parsedUser.id);
       } catch (e) {
         console.error("[songDetailPage] 解析localStorage中的用户数据失败", e);
       }
@@ -251,7 +250,6 @@ export default {
     
     // 优先使用props中传入的userId，但保留完整的用户对象属性
     if (this.userId) {
-      console.log("[songDetailPage] 使用props传入的userId:", this.userId);
       // 如果有parsedUser，用传入的userId覆盖其id属性
       if (parsedUser) {
         parsedUser.id = this.userId;
@@ -262,7 +260,6 @@ export default {
       }
     } else if (parsedUser) {
       // 如果没有传入userId但有localStorage数据，使用localStorage数据
-      console.log("[songDetailPage] 没有props userId，使用localStorage中的用户ID:", parsedUser.id);
       this.user = parsedUser;
     } else {
       // 兜底：创建一个默认用户对象，避免undefined错误
@@ -270,9 +267,6 @@ export default {
       this.user = { id: 1 }; // 使用默认ID
     }
     
-    console.log("[songDetailPage] 初始化完成，用户对象:", this.user);
-    console.log("[songDetailPage] 初始化，来源: ", this.fromGedan ? "歌单" : this.fromSinger ? "歌手详情" : this.fromMyMusic ? "我的音乐" : "其他");
-    console.log("[songDetailPage] 用户ID: ", this.user.id);
   },
   methods: {
     // 获取歌曲详情
@@ -288,9 +282,7 @@ export default {
           }
         }
         
-        console.log("[songDetailPage] 请求歌曲详情，歌曲ID:", id, "用户ID:", this.user.id);
         const response = await api.post('/api/music/detail/', { musicId: id, userId: this.user.id });
-        console.log("[songDetailPage] 歌曲详情响应:", response);
         
         if (response.data) {
           this.song = {
@@ -325,6 +317,9 @@ export default {
       } else if (this.fromMyMusic) {
         console.log("[songDetailPage] 触发返回我的音乐事件");
         this.$emit("onBackToMyMusic");
+      } else if (this.fromTuijian) {
+        console.log("[songDetailPage] 触发返回推荐页面事件");
+        this.$emit("onBackToTuijian");
       } else {
         // 默认返回首页
         console.log("[songDetailPage] 触发返回首页事件");

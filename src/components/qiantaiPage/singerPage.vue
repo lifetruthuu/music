@@ -149,15 +149,29 @@ export default {
 
 .page-title {
   font-size: 2.5rem;
+  font-weight: 700;
   margin-bottom: 10px;
   color: #303133;
-  font-weight: 700;
+  position: relative;
+  display: inline-block;
+}
+
+.page-title::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(90deg, #409eff, #67c23a);
+  border-radius: 3px;
 }
 
 .page-description {
   font-size: 1.1rem;
   color: #606266;
-  margin: 0;
+  margin-top: 15px;
 }
 
 .artist-container {

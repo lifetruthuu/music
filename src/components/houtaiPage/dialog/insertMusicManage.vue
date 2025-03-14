@@ -155,7 +155,7 @@ export default {
     },
     querySingers() {
       this.singersLoading = true;
-      api.post('/api/singer/all/', {}).then(res => {
+      api.get('/api/singer/all/', {}).then(res => {
         this.singers = res.list || [];
       }).catch(err => {
         this.$message.error('获取歌手列表失败');

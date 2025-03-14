@@ -23,48 +23,20 @@
             
             <!-- 用户心情选择组件 -->
             <div class="mood-selector" @click.stop :class="{ 'active': showMoodSelector }">
-              <div class="current-mood" @click="toggleMoodSelector">
+              <div class="current-mood" @click="toggleMoodSelector" ref="moodSelectorBtn">
                 <i :class="getMoodIcon(currentMood)"></i>
                 <span class="mood-text">{{ getMoodLabel(currentMood) }}</span>
                 <i class="el-icon-arrow-down mood-arrow"></i>
               </div>
-              <transition name="fade">
-                <div class="mood-dropdown" v-if="showMoodSelector">
-                  <div 
-                    v-for="mood in moodOptions" 
-                    :key="mood.value" 
-                    class="mood-option"
-                    @click="updateMood(mood.value)"
-                    :class="{ 'active': currentMood === mood.value }"
-                  >
-                    <i :class="mood.icon"></i>
-                    <span>{{ mood.label }}</span>
-                  </div>
-                </div>
-              </transition>
             </div>
             
             <!-- 用户活动选择组件 -->
             <div class="activity-selector" @click.stop :class="{ 'active': showActivitySelector }">
-              <div class="current-activity" @click="toggleActivitySelector">
+              <div class="current-activity" @click="toggleActivitySelector" ref="activitySelectorBtn">
                 <i :class="getActivityIcon(currentActivity)"></i>
                 <span class="activity-text">{{ getActivityLabel(currentActivity) }}</span>
                 <i class="el-icon-arrow-down activity-arrow"></i>
               </div>
-              <transition name="fade">
-                <div class="activity-dropdown" v-if="showActivitySelector">
-                  <div 
-                    v-for="activity in activityOptions" 
-                    :key="activity.value" 
-                    class="activity-option"
-                    @click="updateActivity(activity.value)"
-                    :class="{ 'active': currentActivity === activity.value }"
-                  >
-                    <i :class="activity.icon"></i>
-                    <span>{{ activity.label }}</span>
-                  </div>
-                </div>
-              </transition>
             </div>
           </div>
         </div>
@@ -117,6 +89,39 @@
         </div>
       </div>
     </div>
+    
+    <!-- 将下拉菜单移到DOM树的顶层，避免嵌套导致的z-index问题 -->
+    <!-- 心情下拉菜单 -->
+    <transition name="fade">
+      <div class="mood-dropdown floating-dropdown" v-if="showMoodSelector" :style="moodDropdownStyle">
+        <div 
+          v-for="mood in moodOptions" 
+          :key="mood.value" 
+          class="mood-option"
+          @click="updateMood(mood.value)"
+          :class="{ 'active': currentMood === mood.value }"
+        >
+          <i :class="mood.icon"></i>
+          <span>{{ mood.label }}</span>
+        </div>
+      </div>
+    </transition>
+    
+    <!-- 活动下拉菜单 -->
+    <transition name="fade">
+      <div class="activity-dropdown floating-dropdown" v-if="showActivitySelector" :style="activityDropdownStyle">
+        <div 
+          v-for="activity in activityOptions" 
+          :key="activity.value" 
+          class="activity-option"
+          @click="updateActivity(activity.value)"
+          :class="{ 'active': currentActivity === activity.value }"
+        >
+          <i :class="activity.icon"></i>
+          <span>{{ activity.label }}</span>
+        </div>
+      </div>
+    </transition>
     
     <!-- 搜索栏 -->
     <div class="search-container">
@@ -433,15 +438,39 @@ export default {
     // 用户当前的心情，有默认值
     currentMood() {
       // 添加日志以检查计算过程
-      console.log('myMusicPage: 计算currentMood, user.mood =', this.user?.mood);
       // 确保始终返回有效的心情值
       return this.user?.mood || 'none';
     },
     
     // 用户当前的活动，有默认值
     currentActivity() {
-      console.log('myMusicPage: 计算currentActivity, user.activity =', this.user?.activity);
       return this.user?.activity || '';
+    },
+    
+    // 心情下拉菜单的定位样式
+    moodDropdownStyle() {
+      if (!this.$refs.moodSelectorBtn) return {};
+      
+      const rect = this.$refs.moodSelectorBtn.getBoundingClientRect();
+      return {
+        position: 'fixed',
+        top: `${rect.bottom + 5}px`,
+        left: `${rect.left}px`,
+        zIndex: 9999
+      };
+    },
+    
+    // 活动下拉菜单的定位样式
+    activityDropdownStyle() {
+      if (!this.$refs.activitySelectorBtn) return {};
+      
+      const rect = this.$refs.activitySelectorBtn.getBoundingClientRect();
+      return {
+        position: 'fixed',
+        top: `${rect.bottom + 5}px`,
+        left: `${rect.left}px`,
+        zIndex: 9999
+      };
     }
   },
 
@@ -458,7 +487,6 @@ export default {
         const oldMood = oldUser?.mood;
         
         if (newMood !== oldMood) {
-          console.log('myMusicPage: 监听到用户心情变化:', oldMood, '->', newMood);
           // 强制更新UI
           this.$nextTick(() => this.$forceUpdate());
         }
@@ -470,12 +498,10 @@ export default {
 
   created() {
 
-    console.log('myMusicPage: created生命周期钩子执行');
     
     // 先获取用户心情和活动，再初始化数据
     Promise.all([this.getUserMood(), this.getUserActivity()])
       .then(() => {
-        console.log('myMusicPage: 心情和活动获取完成，准备初始化数据');
         this.initData();
       })
       .catch(err => {
@@ -489,6 +515,7 @@ export default {
     window.addEventListener('mousemove', this.handleMouseMove);
     window.addEventListener('resize', this.handleResize);
     window.addEventListener('click', this.handleOutsideClick);
+    window.addEventListener('scroll', this.updateDropdownPositions);
     this.checkViewportWidth();
     window.addEventListener('resize', this.checkViewportWidth);
     
@@ -501,6 +528,7 @@ export default {
     window.removeEventListener('resize', this.handleResize);
     window.removeEventListener('click', this.handleOutsideClick);
     window.removeEventListener('resize', this.checkViewportWidth);
+    window.removeEventListener('scroll', this.updateDropdownPositions);
     
     // 移除页面可见性变化事件监听
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
@@ -519,12 +547,10 @@ export default {
           userId: this.user.id
         }
       }).then(res => {
-        console.log('myMusicPage: API返回的心情数据:', res);
         
         if (res.status === 'success') {
           // 确保有默认值
           const mood = res.mood || 'none';
-          console.log('myMusicPage: 准备更新心情为:', mood);
           
           // 创建一个新的用户对象，确保不是直接修改引用
           const updatedUser = JSON.parse(JSON.stringify(this.user));
@@ -532,7 +558,6 @@ export default {
           
           // 更新Vuex状态
           return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
-            console.log('myMusicPage: Vuex状态已更新，当前心情:', mood, '从user对象读取:', this.user.mood);
             
             // 强制重新计算和重新渲染
             this.$nextTick(() => {
@@ -561,7 +586,29 @@ export default {
     },
     
     toggleProfileExpansion() {
+      // 关闭所有下拉菜单，避免遮挡问题
+      this.showMoodSelector = false;
+      this.showActivitySelector = false;
+      
+      // 添加过渡类，用于动画
+      this.$el.querySelector('.user-profile-card').classList.add('animating');
+      
+      // 切换展开状态
       this.expandedProfile = !this.expandedProfile;
+      
+      // 动画完成后移除过渡类
+      setTimeout(() => {
+        this.$el.querySelector('.user-profile-card').classList.remove('animating');
+      }, 500); // 与CSS中的过渡时间一致
+      
+      // 如果展开，滚动到卡片顶部以确保用户可以看到所有内容
+      if (this.expandedProfile) {
+        // 使用平滑滚动
+        this.$el.querySelector('.user-profile-card').scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
     },
     
     openSettingsDialog() {
@@ -919,19 +966,39 @@ export default {
     },
 
     toggleMoodSelector() {
+      // 关闭活动选择器
+      this.showActivitySelector = false;
+      
+      // 切换心情选择器
       this.showMoodSelector = !this.showMoodSelector;
-      // 如果打开心情选择器，关闭活动选择器
+      
+      // 如果打开了选择器，在下一个tick更新位置
       if (this.showMoodSelector) {
-        this.showActivitySelector = false;
+        this.$nextTick(() => {
+          this.updateDropdownPositions();
+        });
       }
     },
 
     toggleActivitySelector() {
+      // 关闭心情选择器
+      this.showMoodSelector = false;
+      
+      // 切换活动选择器
       this.showActivitySelector = !this.showActivitySelector;
-      // 如果打开活动选择器，关闭心情选择器
+      
+      // 如果打开了选择器，在下一个tick更新位置
       if (this.showActivitySelector) {
-        this.showMoodSelector = false;
+        this.$nextTick(() => {
+          this.updateDropdownPositions();
+        });
       }
+    },
+    
+    // 更新下拉菜单位置
+    updateDropdownPositions() {
+      // 强制重新计算计算属性，Vue会自动处理
+      this.$forceUpdate();
     },
 
     updateMood(mood) {
@@ -950,11 +1017,9 @@ export default {
         mood: mood
       }).then(res => {
         if (res.status === 'success') {
-          console.log('myMusicPage: API更新心情成功,新心情:', mood);
           
           // 更新Vuex中的用户信息
           store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
-            console.log('myMusicPage: Vuex状态已更新,当前心情:', mood, '从user对象读取:', this.user.mood);
             
             // 强制更新视图
             this.$nextTick(() => {
@@ -968,7 +1033,6 @@ export default {
             });
           });
         } else {
-          console.error('myMusicPage: API更新心情失败:', res.message);
           
           // 如果API请求失败，恢复之前的心情状态
           const revertUser = JSON.parse(JSON.stringify(this.user));
@@ -1009,12 +1073,23 @@ export default {
     },
 
     handleOutsideClick(event) {
-      // 如果点击的不是情绪选择器内部元素，则关闭选择器
-      if (this.showMoodSelector && !event.target.closest('.mood-selector')) {
+      // 检查点击是否在心情选择器按钮外部
+      const isMoodBtnClick = this.$refs.moodSelectorBtn && this.$refs.moodSelectorBtn.contains(event.target);
+      const isMoodDropdownClick = document.querySelector('.mood-dropdown') && 
+                                document.querySelector('.mood-dropdown').contains(event.target);
+      
+      // 检查点击是否在活动选择器按钮外部
+      const isActivityBtnClick = this.$refs.activitySelectorBtn && this.$refs.activitySelectorBtn.contains(event.target);
+      const isActivityDropdownClick = document.querySelector('.activity-dropdown') && 
+                                    document.querySelector('.activity-dropdown').contains(event.target);
+      
+      // 如果点击在心情选择器和下拉菜单外部，关闭心情选择器
+      if (this.showMoodSelector && !isMoodBtnClick && !isMoodDropdownClick) {
         this.showMoodSelector = false;
       }
-      // 如果点击的不是活动选择器内部元素，则关闭选择器
-      if (this.showActivitySelector && !event.target.closest('.activity-selector')) {
+      
+      // 如果点击在活动选择器和下拉菜单外部，关闭活动选择器
+      if (this.showActivitySelector && !isActivityBtnClick && !isActivityDropdownClick) {
         this.showActivitySelector = false;
       }
     },
@@ -1035,7 +1110,6 @@ export default {
         return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
       }
       
-      console.log('myMusicPage: 正在获取用户活动...');
       
       // 返回API调用的Promise
       return api.get('/api/user/get_activity/', {
@@ -1043,12 +1117,10 @@ export default {
           userId: this.user.id
         }
       }).then(res => {
-        console.log('myMusicPage: API返回的活动数据:', res);
         
         if (res.status === 'success') {
           // 确保有默认值
           const activity = res.activity || '';
-          console.log('myMusicPage: 准备更新活动为:', activity);
           
           // 创建一个新的用户对象，确保不是直接修改引用
           const updatedUser = JSON.parse(JSON.stringify(this.user));
@@ -1056,12 +1128,10 @@ export default {
           
           // 更新Vuex状态
           return store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
-            console.log('myMusicPage: Vuex状态已更新，当前活动:', activity, '从user对象读取:', this.user.activity);
             
             // 强制重新计算和重新渲染
             this.$nextTick(() => {
               this.$forceUpdate();
-              console.log('myMusicPage: UI已强制更新');
             });
             
             // 确保返回一个已解决的Promise
@@ -1093,7 +1163,6 @@ export default {
     },
 
     updateActivity(activity) {
-      console.log('myMusicPage: 用户选择了新活动:', activity);
       
       // 先更新本地状态
       const previousActivity = this.user.activity;
@@ -1109,16 +1178,13 @@ export default {
         activity: activity
       }).then(res => {
         if (res.status === 'success') {
-          console.log('myMusicPage: API更新活动成功,新活动:', activity);
           
           // 更新Vuex中的用户信息
           store.dispatch('updateUserPreserveAdmin', updatedUser).then(() => {
-            console.log('myMusicPage: Vuex状态已更新,当前活动:', activity, '从user对象读取:', this.user.activity);
             
             // 强制更新视图
             this.$nextTick(() => {
               this.$forceUpdate();
-              console.log('myMusicPage: UI已强制更新后的活动:', this.user.activity);
             });
             
             this.$message({
@@ -1128,7 +1194,6 @@ export default {
             });
           });
         } else {
-          console.error('myMusicPage: API更新活动失败:', res.message);
           
           // 如果API请求失败，恢复之前的活动状态
           const revertUser = JSON.parse(JSON.stringify(this.user));
@@ -1159,6 +1224,18 @@ export default {
 </script>
 
 <style scoped>
+/* 浮动下拉菜单样式 */
+.floating-dropdown {
+  position: fixed;
+  width: 150px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
 .my-music-page {
   width: 100%;
   max-width: 1200px;
@@ -1169,17 +1246,22 @@ export default {
 
 /* 用户信息卡片样式 */
 .user-profile-card {
-  background: linear-gradient(135deg, #8e44ad, #3498db);
+  background: linear-gradient(135deg, #8e44ad, #3498db, #2980b9, #9b59b6);
+  background-size: 300% 300%;
+  animation: gradientShift 15s ease infinite;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   margin-bottom: 30px;
   transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
   color: white;
+  position: relative;
+  will-change: transform, box-shadow;
 }
 
 .user-profile-card.expanded {
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  transform: scale(1.01);
 }
 
 .profile-header {
@@ -1188,6 +1270,53 @@ export default {
   padding: 20px;
   cursor: pointer;
   position: relative;
+  transition: background 0.3s ease;
+  overflow: hidden;
+}
+
+.profile-header:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.profile-header::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease-out, height 0.6s ease-out, opacity 0.6s ease-out;
+  opacity: 0;
+  z-index: 0;
+}
+
+.profile-header:active::before {
+  width: 300px;
+  height: 300px;
+  opacity: 1;
+}
+
+.profile-header::after {
+  content: '\e6e1';
+  font-family: 'element-icons';
+  position: absolute;
+  right: 15px;
+  bottom: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+.user-profile-card:not(.expanded) .profile-header::after {
+  animation: pulse 2s infinite;
+}
+
+.expanded .profile-header::after {
+  animation: none;
+  transform: rotate(180deg);
 }
 
 .profile-avatar-container {
@@ -1198,11 +1327,22 @@ export default {
   overflow: hidden;
   margin-right: 20px;
   border: 3px solid rgba(255, 255, 255, 0.5);
-  transition: all 0.3s ease;
+  transition: all 0.3s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1;
+}
+
+.expanded .profile-avatar-container {
+  transform: scale(1.08);
 }
 
 .profile-avatar-container:hover {
   transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.expanded .profile-avatar-container:hover {
+  transform: scale(1.15);
 }
 
 .profile-avatar {
@@ -1236,6 +1376,8 @@ export default {
 
 .profile-basic-info {
   flex: 1;
+  position: relative;
+  z-index: 20;
 }
 
 .profile-nickname {
@@ -1285,20 +1427,47 @@ export default {
 }
 
 .profile-details {
-  padding: 0 20px 20px;
-  animation: fadeIn 0.5s ease;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.5s cubic-bezier(0, 1, 0, 1),
+              opacity 0.5s ease,
+              padding 0.5s ease;
+  padding: 0 20px;
+  position: relative;
+  z-index: 10;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.expanded .profile-details {
+  max-height: 500px; /* 足够大的值来容纳所有内容 */
+  opacity: 1;
+  padding: 10px 20px 20px;
+  transition: max-height 0.5s cubic-bezier(0.5, 0, 1, 0),
+              opacity 0.5s ease 0.2s,
+              padding 0.5s ease;
 }
 
 .detail-item {
   margin-bottom: 10px;
   display: flex;
   align-items: center;
+  transform: translateY(10px);
+  opacity: 0;
+  transition: transform 0.4s ease, opacity 0.4s ease;
 }
+
+.expanded .detail-item {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.expanded .detail-item:nth-child(1) { transition-delay: 0.1s; }
+.expanded .detail-item:nth-child(2) { transition-delay: 0.15s; }
+.expanded .detail-item:nth-child(3) { transition-delay: 0.2s; }
+.expanded .detail-item:nth-child(4) { transition-delay: 0.25s; }
+.expanded .detail-item:nth-child(5) { transition-delay: 0.3s; }
+.expanded .detail-item:nth-child(6) { transition-delay: 0.35s; }
+.expanded .detail-item:nth-child(7) { transition-delay: 0.4s; }
 
 .detail-item i {
   margin-right: 10px;
@@ -1317,6 +1486,25 @@ export default {
 
 .bio-item {
   align-items: flex-start;
+}
+
+/* 动画状态类 */
+.user-profile-card.animating {
+  pointer-events: none; /* 防止动画过程中的交互 */
+}
+
+/* 展开/收起指示动画 */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+/* 添加平滑的卡片背景动画 */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 /* 搜索容器样式 */
@@ -1697,9 +1885,14 @@ export default {
     font-size: 18px;
   }
   
-  .mood-dropdown {
-    right: 0;
-    left: auto;
+  .mood-dropdown, .activity-dropdown {
+    width: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .expanded .profile-stats {
+    margin-bottom: 15px;
   }
 }
 
@@ -1748,8 +1941,27 @@ export default {
   border-radius: 8px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   margin-top: 10px;
-  z-index: 1000;
+  z-index: 2000;
   overflow: hidden;
+  will-change: transform, opacity;
+}
+
+.close-dropdown {
+  cursor: pointer;
+  font-size: 16px;
+  color: #909399;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+}
+
+.close-dropdown:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #606266;
 }
 
 .mood-option {
@@ -1777,12 +1989,14 @@ export default {
 
 /* 显示/隐藏动画 */
 .fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-origin: top center;
+  pointer-events: none;
 }
 
 .fade-enter, .fade-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(-10px) scale(0.95);
 }
 
 /* 用户活动选择器样式 */
@@ -1830,8 +2044,9 @@ export default {
   border-radius: 8px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   margin-top: 10px;
-  z-index: 1000;
+  z-index: 2000;
   overflow: hidden;
+  will-change: transform, opacity;
 }
 
 .activity-option {
@@ -1855,5 +2070,17 @@ export default {
 .activity-option i {
   margin-right: 10px;
   font-size: 16px;
+}
+
+/* 确保下拉菜单在卡片展开时也能正确显示 */
+.expanded .mood-selector, .expanded .activity-selector {
+  position: static;
+}
+
+.expanded .mood-dropdown, .expanded .activity-dropdown {
+  position: absolute;
+  top: auto;
+  left: auto;
+  transform: translateY(10px);
 }
 </style>

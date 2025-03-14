@@ -15,10 +15,12 @@
                    @onBackToGedan="onBackToGedan"
                    @onBackToHome="onBackToHome"
                    @onBackToMyMusic="onBackToMyMusic"
+                   @onBackToTuijian="onBackToTuijian"
                    @onMusicListByGedan="onMusicListByGedan"
                    @onGoToSongDetail="onGoToSongDetail"
                    @onGoToSongDetailFromSinger="onGoToSongDetailFromSinger"
                    @onGoToSongDetailFromMyMusic="onGoToSongDetailFromMyMusic"
+                   @onGoToSongDetailFromTuijian="onGoToSongDetailFromTuijian"
                    @onGoToRecommendFromMyMusic="onGoToRecommendFromMyMusic"
                    :queryStr="queryStr"
                    :index="index"
@@ -27,6 +29,7 @@
                    :fromGedan="songSource === 'gedan'"
                    :fromSinger="songSource === 'singer'"
                    :fromMyMusic="songSource === 'myMusic'"
+                   :fromTuijian="songSource === 'tuijian'"
                    :userId="currentUserId"
                    :id="currentMusicId"/>
       </transition>
@@ -518,6 +521,38 @@ export default{
       console.log("[index] 已切换到tuijianPage");
     },
 
+    // 处理从推荐页面点击歌曲进入详情页
+    onGoToSongDetailFromTuijian(songId, userId) {
+      console.log("[index] 从tuijianPage接收到跳转请求，歌曲ID:", songId, "用户ID:", userId);
+      
+      // 保存当前组件作为返回目标
+      this.previousComponent = this.currentComponent;
+      this.songSource = 'tuijian';
+      
+      // 设置歌曲ID和用户ID并切换到歌曲详情页
+      this.currentMusicId = songId;
+      this.currentUserId = userId; // 保存用户ID
+      
+      this.currentComponent = songDetailPage;
+      this.currentPageCode = 'songDetailPage';
+    },
+    
+    // 处理从歌曲详情页返回推荐页面的事件
+    onBackToTuijian() {
+      console.log("[index] 收到返回推荐页面事件");
+      
+      // 从歌曲详情页返回到推荐页面
+      if (this.currentPageCode === 'songDetailPage' && this.songSource === 'tuijian') {
+        console.log("[index] 从歌曲详情页返回到推荐页面");
+        this.currentComponent = tuijianPage;
+        this.currentPageCode = 'tuijianPage';
+      } else {
+        console.log("[index] 其他情况，默认返回到推荐页面");
+        this.currentComponent = tuijianPage;
+        this.currentPageCode = 'tuijianPage';
+      }
+    },
+
     // 添加新方法，确保管理员状态
     ensureAdminStatus() {
       // 获取header组件引用
@@ -545,7 +580,6 @@ export default{
     const user = JSON.parse(userString);
     this.username = user.username;
     this.id = user.id;
-    this.initData();
   },
 
   mounted() {

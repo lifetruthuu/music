@@ -72,14 +72,22 @@
       <!-- 内部确认按钮 -->
       <div class="dialog-footer">
         <span class="selected-count">已选择 {{ selectedTags.length }} 个标签</span>
-        <el-button 
-          type="primary" 
-          class="confirm-btn" 
-          @click="onSave()"
-          :loading="saving"
-          :disabled="selectedTags.length < 3 || selectedTags.length > 8 || saving">
-          {{ saving ? '保存中...' : '确认选择' }}
-        </el-button>
+        <div class="action-buttons">
+          <el-button 
+            class="skip-btn" 
+            @click="skipSelection"
+            :disabled="saving">
+            跳过选择
+          </el-button>
+          <el-button 
+            type="primary" 
+            class="confirm-btn" 
+            @click="onSave()"
+            :loading="saving"
+            :disabled="selectedTags.length < 3 || selectedTags.length > 8 || saving">
+            {{ saving ? '保存中...' : '确认选择' }}
+          </el-button>
+        </div>
       </div>
     </div>
   </el-dialog>
@@ -102,11 +110,20 @@ export default {
       loading: false,
       loadError: false,
       errorMessage: '',
-      saving: false
+      saving: false,
+      userTagsLoaded: false, // 标记是否已加载用户标签
+      user: null
+    }
+  },
+  watch: {
+    titleDialog(val) {
+      if (val && !this.userTagsLoaded) {
+        this.fetchData();
+      }
     }
   },
   created() {
-    this.fetchData();
+    this.user = JSON.parse(localStorage.getItem('user') || '{}');
     this.updateDialogWidth();
     window.addEventListener('resize', this.updateDialogWidth);
   },
@@ -161,6 +178,7 @@ export default {
     fetchData() {
       this.loading = true;
       this.loadError = false;
+      this.userTagsLoaded = false;
       
       // 第一步：获取分类数据
       this.queryCode()
@@ -171,13 +189,59 @@ export default {
         .then(() => {
           // 第三步：组织数据
           this.processData();
+          
+          // 第四步：获取用户已选择的标签
+          if (this.user && this.user.id) {
+            return this.loadUserTags();
+          }
+        })
+        .then(() => {
           this.loading = false;
+          this.userTagsLoaded = true;
         })
         .catch(err => {
           console.error('数据加载失败:', err);
           this.loading = false;
           this.loadError = true;
         });
+    },
+    // 加载用户已选择的标签
+    loadUserTags() {
+      if (!this.user || !this.user.id) {
+        return Promise.resolve();
+      }
+      
+      return api.get(`/api/user/getTitle/?userId=${this.user.id}`)
+      .then(res => {
+        if (res && res.status === 'success' && res.list && res.list.length > 0) {
+          // 清空当前选择的标签
+          this.selectedTags = [];
+          
+          // 将用户已选择的标签添加到选择列表中
+          res.list.forEach(tag => {
+            // 在所有标签中查找匹配的标签
+            for (const category of this.categories) {
+              const matchingTag = category.tags.find(t => t.id === tag.id);
+              if (matchingTag) {
+                // 添加到已选择标签，包含权重
+                this.selectedTags.push({
+                  ...matchingTag,
+                  weight: tag.weight || 3
+                });
+                break;
+              }
+            }
+          });
+          
+          console.log('已加载用户标签:', this.selectedTags);
+        } else {
+          console.log('用户未选择标签或加载失败');
+        }
+      })
+      .catch(err => {
+        console.error('加载用户标签失败:', err);
+        this.$message.warning('无法加载您之前选择的标签，请重新选择');
+      });
     },
     // 处理并组织数据
     processData() {
@@ -270,6 +334,18 @@ export default {
         console.error('请求失败:', err);
         this.saving = false;
         this.$message.error('保存标签失败，请重试');
+      });
+    },
+    skipSelection() {
+      api.post('/api/user/title/', {
+        userId: this.user.id,
+        titleData: []
+      }).then(res => {
+        this.$message.info('已跳过标签选择');
+        this.selectedTags = [];
+        this.$emit("onclose");
+      }).catch(err => {
+        console.error('请求失败:', err);
       });
     }
   }
@@ -474,9 +550,31 @@ export default {
   border-top: 1px solid #ebeef5;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .selected-count {
   color: #666;
   font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+}
+
+.skip-btn {
+  border: 1px solid #dcdfe6;
+  color: #606266;
+  padding: 0.6em 1.5em;
+  border-radius: 25px;
+  font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.skip-btn:hover:not(:disabled) {
+  border-color: #c6e2ff;
+  color: #409eff;
+  background-color: #ecf5ff;
 }
 
 .confirm-btn {
@@ -555,6 +653,11 @@ export default {
   
   .selected-count {
     margin-bottom: 0.5em;
+  }
+  
+  .action-buttons {
+    width: 100%;
+    justify-content: center;
   }
 }
 

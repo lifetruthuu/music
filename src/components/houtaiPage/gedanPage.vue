@@ -179,7 +179,6 @@ export default {
     },
     onCloseMusicDialog() {
       this.musicDialogFormVisible = false;
-      this.initData();
     },
     fullImagePath(path) {
       if (!path) return require('@/assets/img.png'); // 默认图片
