@@ -18,6 +18,16 @@
           <p class="description-title">歌单介绍:</p>
           <p class="description-content">{{ gedanDescription }}</p>
         </div>
+        
+        <!-- 添加评论组件 -->
+        <div class="header-comment-section">
+          <CommentSection
+            v-if="geDanId"
+            :target-id="geDanId"
+            target-type="gedan"
+            :show-rating="true"
+          />
+        </div>
       </div>
     </div>
 
@@ -101,10 +111,12 @@
 <script>
 import api from "@/api/axios";
 import Pagination from '@/components/com/Pagination.vue'
+import CommentSection from '@/components/com/CommentSection.vue'
 
 export default {
   components: {
-    Pagination
+    Pagination,
+    CommentSection
   },
   props: {
     geDanId: String,
@@ -767,6 +779,11 @@ export default {
     max-height: 120px;
   }
   
+  .header-comment-section {
+    margin-top: 20px;
+    padding-top: 15px;
+  }
+  
   .header, .song-item {
     grid-template-columns: 1fr;
     padding: 15px;
@@ -793,5 +810,26 @@ export default {
   justify-content: center;
   margin-top: 20px;
   padding: 0 20px;
+}
+
+
+/* 头部评论区样式 */
+.header-comment-section {
+  margin-top: 25px;
+  border-top: 1px solid #ebeef5;
+  padding-top: 20px;
+  transition: all 0.3s ease;
+  animation: fade-in-up 0.6s ease-out;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

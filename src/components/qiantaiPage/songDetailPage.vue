@@ -101,6 +101,21 @@
           <p v-if="parsedLyrics.length === 0" class="no-lyrics">暂无歌词</p>
         </div>
       </div>
+      
+      <!-- 评论区域 -->
+      <div class="comment-container">
+        <h3 class="comment-title">评论</h3>
+        <div class="embedded-comment-section">
+          <!-- 内嵌评论组件 -->
+          <CommentSection 
+            :target-id="song.id"
+            target-type="music" 
+            :show-rating="true"
+            :embedMode="true"
+            class="comment-section"
+          />
+        </div>
+      </div>
     </div>
     
     <!-- 音频元素 -->
@@ -117,9 +132,13 @@
 <script>
 import api from "@/api/axios";
 import BehaviorService from "@/services/BehaviorService";
+import CommentSection from "@/components/com/CommentSection.vue";
 
 export default {
   name: 'SongDetailPage',
+  components: {
+    CommentSection
+  },
   props: {
     id: {
       type: [String, Number],
@@ -623,7 +642,7 @@ export default {
   width: 90%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 30px;
+  padding: 60px 30px 30px;
   animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   background: #ffffff;
   border-radius: 20px;
@@ -639,10 +658,18 @@ export default {
   transition: color 0.3s;
   animation: slideIn 0.4s ease-out;
   color: #333333;
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  z-index: 10;
 }
 
 .back-button:hover {
   color: #409EFF;
+}
+
+.back-button i {
+  margin-right: 5px;
 }
 
 .song-info-container {
@@ -997,6 +1024,17 @@ export default {
 
 /* 响应式调整 */
 @media (max-width: 768px) {
+  .back-button {
+    position: relative;
+    left: 0;
+    top: 0;
+    margin-bottom: 20px;
+  }
+  
+  .content-container {
+    padding-top: 30px;
+  }
+  
   .song-info-container {
     flex-direction: column;
     align-items: center;
@@ -1132,5 +1170,59 @@ export default {
   white-space: pre-wrap;
   animation: fadeIn 0.5s ease-out;
   color: #555555; /* 灰色文本，适合白色背景 */
+}
+
+/* 评论区样式 */
+.comment-section {
+  margin-top: 40px;
+  width: 100%;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.comment-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.comment-title {
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #333333;
+  position: relative;
+  padding-left: 15px;
+}
+
+.comment-title:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background: linear-gradient(to bottom, #409EFF, #337ecc);
+  border-radius: 3px;
+}
+
+.comment-container {
+  margin-top: 40px;
+  width: 100%;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.comment-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.embedded-comment-section {
+  margin-top: 20px;
 }
 </style> 
