@@ -17,6 +17,14 @@
           <div class="preference-options">
             <div class="button-wrapper">
               <el-button 
+                class="refresh-button" 
+                type="primary" 
+                @click="handleRefresh"
+                title="刷新推荐"
+              >
+                <i class="el-icon-refresh" style="font-size: 24px;"></i>
+              </el-button>
+              <el-button 
                 class="preference-button" 
                 type="primary" 
                 @click="openTagDialog"
@@ -127,7 +135,8 @@ export default {
         'tired': '疲惫'
       },
       availableActivities: ['studying', 'working', 'exercising', 'relaxing', 'commuting', ''], // 可选活动
-      showTagDialog: false // 控制偏好标签弹窗显示
+      showTagDialog: false, // 控制偏好标签弹窗显示
+      refreshInterval: null // 添加刷新间隔
     }
   },
   computed: {
@@ -217,7 +226,6 @@ export default {
       if (!this.user || !this.user.id) {
         return Promise.resolve(); // 如果没有用户，返回一个已解决的Promise
       }
-      
       
       // 返回API调用的Promise
       return api.get('/api/user/get_mood/', {
@@ -424,19 +432,30 @@ export default {
     handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
         // 页面变为可见时，重新获取用户心情和活动，然后刷新推荐
-        Promise.all([this.getUserMood(), this.getUserActivity()])
-          .then(() => {
-            // 只有当页面有推荐内容时才重新加载，避免重复加载
-            if (this.recommendations.length > 0) {
-              this.loadRecommendations();
-            }
-          })
-          .catch(err => {
-            console.error('tuijianPage: 刷新页面数据失败:', err);
-          });
+        this.refreshRecommendations();
       }
     },
     
+    // 添加刷新方法
+    handleRefresh() {
+      // 显示加载动画
+      this.initialLoading = true;
+      // 调用刷新方法
+      this.refreshRecommendations();
+    },
+
+    // 重构刷新推荐的方法
+    refreshRecommendations() {
+      Promise.all([this.getUserMood(), this.getUserActivity()])
+        .then(() => {
+          this.loadRecommendations();
+        })
+        .catch(err => {
+          console.error('tuijianPage: 刷新页面数据失败:', err);
+          this.$message.error('刷新推荐失败，请重试');
+          this.initialLoading = false;
+        });
+    },
   }
 }
 </script>
@@ -885,5 +904,34 @@ export default {
   100% {
     opacity: 0.8;
   }
+}
+
+/* 刷新按钮样式 */
+.refresh-button {
+  background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%) !important;
+  border: none !important;
+  padding: 12px !important;
+  border-radius: 50% !important;
+  margin-right: 15px;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 15px rgba(132, 250, 176, 0.2) !important;
+}
+
+.refresh-button:hover {
+  transform: rotate(180deg);
+  background: linear-gradient(120deg, #8fd3f4 0%, #84fab0 100%) !important;
+  box-shadow: 0 6px 20px rgba(132, 250, 176, 0.3) !important;
+}
+
+.refresh-button:active {
+  transform: rotate(180deg) scale(0.95);
+}
+
+.refresh-button i {
+  transition: all 0.3s ease;
+}
+
+.refresh-button:hover i {
+  transform: scale(1.1);
 }
 </style>
